@@ -85,7 +85,9 @@ PLAYER_PIXEL_MAP_BASE = [
     " 1111111 ",
     "111111111",
     "1 1 1 1 1",
-    "  1 1 1  "
+    "  1 1 1  ",
+    "   111   ",
+    "         "
 ]
 PLAYER_THRUSTER_MAPS = [
     [["   111   "], THRUSTER_COR_1],
@@ -763,7 +765,7 @@ class Game:
     def __init__(self):
         pygame.init()
         self.tela = pygame.display.set_mode((LARGURA_TELA, ALTURA_TELA))
-        pygame.display.set_caption("Space Invaders Pixel Remix")
+        pygame.display.set_caption("Space Invaders Criado por João Marcelo Detomini")
         # Carregar fonte pixelada
         font_path = os.path.join("C:\\Users\\joaoC\\game_py", "PressStart2P-Regular.ttf")
         try:
@@ -1120,8 +1122,8 @@ class Game:
             self.tela.blit(temp_planeta.image, temp_planeta.rect)
             temp_estrelas.update()
             temp_estrelas.draw(self.tela)
-            titulo = self.fonte_titulo.render("SPACE INVADERS", True, VERDE_JOGADOR)
-            subtitulo = self.fonte_media.render("Pixel Remix", True, BRANCO)
+            titulo = self.fonte_titulo.render("CODEVERSE GAME", True, VERDE_JOGADOR)
+            subtitulo = self.fonte_media.render("Criado por João Marcelo Detomini", True, BRANCO)
             instrucao = self.fonte_hud.render("Pressione ENTER para começar, S para escudo", True, BRANCO)
             self.tela.blit(titulo, (LARGURA_TELA // 2 - titulo.get_width() // 2, ALTURA_TELA // 2 - 100))
             self.tela.blit(subtitulo, (LARGURA_TELA // 2 - subtitulo.get_width() // 2, ALTURA_TELA // 2 - 40))
