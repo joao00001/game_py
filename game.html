@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #0a0a19;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid #ffffff;
+        }
+        #loading {
+            color: white;
+            font-size: 24px;
+            position: absolute;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading Space Invaders...</div>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.3/full/pyodide.js"></script>
+    <script>
+        async function main() {
+            let pyodide = await loadPyodide();
+            await pyodide.loadPackage("pygame");
+
+            // Carregar o código Python do jogo
+            let response = await fetch("game.py");
+            let pythonCode = await response.text();
+
+            // Esconder mensagem de loading após carregar o Pyodide
+            document.getElementById("loading").style.display = "none";
+
+            // Executar o código Python
+            await pyodide.runPythonAsync(pythonCode);
+        }
+        main();
+    </script>
+</body>
+</html>
