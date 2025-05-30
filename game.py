@@ -18,17 +18,22 @@ BRANCO = (230, 230, 230)
 VERDE_JOGADOR = (0, 255, 128)
 VERMELHO_ALIEN_PROJETIL = (255, 80, 80)
 AZUL_JOGADOR_PROJETIL = (128, 200, 255)
-COR_ALIEN_1 = [(255, 255, 255), (200, 255, 200), (255, 200, 200)]  # Varied colors
+COR_ALIEN_1 = [(255, 255, 255), (200, 255, 200), (255, 200, 200)]
 COR_ALIEN_2 = [(255, 0, 255), (200, 100, 255), (255, 100, 200)]
 COR_ALIEN_3 = [(255, 255, 0), (200, 200, 100), (255, 200, 100)]
+COR_ALIEN_BOSS = [(255, 50, 50), (200, 50, 50)]
+COR_ALIEN_STEALTH = [(100, 100, 150), (120, 120, 180)]
 COR_BARREIRA = (0, 180, 0)
-COR_EXPLOSAO_1 = (255, 165, 0)
-COR_EXPLOSAO_2 = (255, 255, 0)
+COR_EXPLOSAO_1 = [(255, 165, 0), (255, 255, 0), (255, 100, 0)]
+COR_EXPLOSAO_2 = [(255, 255, 100), (255, 200, 50), (255, 150, 0)]
 COR_TEXTO = BRANCO
 COR_HUD_FUNDO = (40, 40, 60, 200)
 COR_POWERUP_VIDA = (0, 255, 0)
 COR_POWERUP_SHOOT = (0, 200, 255)
 COR_POWERUP_SHIELD = (255, 255, 0)
+COR_POWERUP_MULTI = (255, 0, 255)
+COR_POWERUP_SPEED = (255, 165, 0)
+COR_POWERUP_HOMING = (100, 255, 100)
 COR_SHIELD = (100, 200, 255, 150)
 
 COR_ESTRELA_1 = (200, 200, 220)
@@ -68,6 +73,9 @@ def criar_sprite_pixel_art(pixel_maps, cor, escala=PIXEL_SCALE, anim_delay=0.5):
         desenhar_pixel_art(frame_surface, p_map, cor, 0, 0, escala)
         frames.append(frame_surface)
     return frames, anim_delay
+
+def screen_shake(offset, duration):
+    return [(random.randint(-offset, offset), random.randint(-offset, offset)) for _ in range(duration)]
 
 # --- Pixel Art Sprites ---
 PLAYER_PIXEL_MAP_BASE = [
@@ -133,10 +141,57 @@ ALIEN_3_PIXEL_MAPS = [
         " 1 1 1 1 "
     ]
 ]
+ALIEN_BOSS_PIXEL_MAPS = [
+    [
+        "  111111  ",
+        " 11111111 ",
+        "1111111111",
+        "11 1111 11",
+        "1  1111  1"
+    ],
+    [
+        "  111111  ",
+        " 11111111 ",
+        "1111111111",
+        "1 111111 1",
+        " 1 1111 1 "
+    ]
+]
+ALIEN_STEALTH_PIXEL_MAPS = [
+    [
+        "  11 11  ",
+        " 1111111 ",
+        "11 11 11 ",
+        "1 1  1 1 ",
+        " 1    1  "
+    ],
+    [
+        "  11 11  ",
+        " 1111111 ",
+        "11 11 11 ",
+        " 1 11 1  ",
+        "  1  1   "
+    ]
+]
 PROJETIL_PIXEL_MAP = [
     "11",
     "11",
+    "11",
     "11"
+]
+LASER_PIXEL_MAPS = [
+    [
+        " 11 ",
+        "1111",
+        "1111",
+        " 11 "
+    ],
+    [
+        "11  ",
+        "1111",
+        "1111",
+        "  11"
+    ]
 ]
 BARREIRA_SEGMENTO_PIXEL_MAP = [
     "1111",
@@ -162,6 +217,13 @@ EXPLOSAO_PIXEL_MAPS = [
         "1 1 1",
         "1   1",
         "11111"
+    ],
+    [
+        "1 1 1",
+        " 1 1 ",
+        "1 1 1",
+        " 1 1 ",
+        "1 1 1"
     ]
 ]
 POWERUP_PIXEL_MAP = [
@@ -173,15 +235,15 @@ POWERUP_PIXEL_MAP = [
 
 # --- Classes ---
 class Particle:
-    def __init__(self, x, y, cor, speed, angle, lifespan):
+    def __init__(self, x, y, cor, speed, angle, lifespan, size_range=(1, 3)):
         self.pos_x = x
         self.pos_y = y
-        self.cor = cor
+        self.cor = cor if isinstance(cor, tuple) else random.choice(cor)
         self.speed = speed
         self.angle = angle
         self.lifespan = lifespan
         self.current_life = lifespan
-        self.size = random.randint(1, 3) * PIXEL_SCALE
+        self.size = random.randint(size_range[0], size_range[1]) * PIXEL_SCALE
 
     def update(self):
         self.pos_x += math.cos(self.angle) * self.speed
@@ -407,7 +469,10 @@ class PowerUp(pygame.sprite.Sprite):
         cor = {
             'vida': COR_POWERUP_VIDA,
             'shoot': COR_POWERUP_SHOOT,
-            'shield': COR_POWERUP_SHIELD
+            'shield': COR_POWERUP_SHIELD,
+            'multi': COR_POWERUP_MULTI,
+            'speed': COR_POWERUP_SPEED,
+            'homing': COR_POWERUP_HOMING
         }[tipo]
         self.frames, _ = criar_sprite_pixel_art(POWERUP_PIXEL_MAP, cor, escala=PIXEL_SCALE)
         self.image = self.frames[0]
@@ -415,6 +480,8 @@ class PowerUp(pygame.sprite.Sprite):
         self.vel_y = 2
         self.pulse_timer = 0
         self.pulse_direction = 1
+        self.glow_surface = pygame.Surface((self.rect.width + 10, self.rect.height + 10), pygame.SRCALPHA)
+        pygame.draw.rect(self.glow_surface, (*cor[:3], 100), (0, 0, self.rect.width + 10, self.rect.height + 10), border_radius=5)
 
     def update(self):
         self.rect.y += self.vel_y
@@ -453,6 +520,15 @@ class Player(pygame.sprite.Sprite):
         self.shield_start = 0
         self.shield_cooldown = 15000
         self.shield_last_used = -self.shield_cooldown
+        self.multi_shot_active = False
+        self.multi_shot_duration = 10000
+        self.multi_shot_start = 0
+        self.speed_boost_active = False
+        self.speed_boost_duration = 10000
+        self.speed_boost_start = 0
+        self.homing_active = False
+        self.homing_duration = 10000
+        self.homing_start = 0
         self.particles = []
         self.combo = 0
         self._atualizar_imagem_composta()
@@ -479,10 +555,11 @@ class Player(pygame.sprite.Sprite):
 
     def update(self):
         teclas = pygame.key.get_pressed()
+        velocidade = self.velocidade * 1.5 if self.speed_boost_active else self.velocidade
         if teclas[pygame.K_LEFT] and self.rect.left > 0:
-            self.rect.x -= self.velocidade
+            self.rect.x -= velocidade
         if teclas[pygame.K_RIGHT] and self.rect.right < LARGURA_TELA:
-            self.rect.x += self.velocidade
+            self.rect.x += velocidade
         if teclas[pygame.K_s] and not self.shield_active:
             agora = pygame.time.get_ticks()
             if agora - self.shield_last_used > self.shield_cooldown:
@@ -492,6 +569,12 @@ class Player(pygame.sprite.Sprite):
         agora = pygame.time.get_ticks()
         if self.shield_active and agora - self.shield_start > self.shield_duration:
             self.shield_active = False
+        if self.multi_shot_active and agora - self.multi_shot_start > self.multi_shot_duration:
+            self.multi_shot_active = False
+        if self.speed_boost_active and agora - self.speed_boost_start > self.speed_boost_duration:
+            self.speed_boost_active = False
+        if self.homing_active and agora - self.homing_start > self.homing_duration:
+            self.homing_active = False
         if agora - self.thruster_ultimo_update > self.thruster_anim_delay * 1000:
             self.thruster_ultimo_update = agora
             self.thruster_frame_atual = (self.thruster_frame_atual + 1) % len(self.thruster_anim_frames)
@@ -501,22 +584,31 @@ class Player(pygame.sprite.Sprite):
             particle_y = self.rect.bottom
             self.particles.append(Particle(particle_x, particle_y, THRUSTER_COR_1, random.uniform(1, 3), random.uniform(math.radians(90), math.radians(270)), 20))
 
-    def atirar(self, todos_sprites, grupo_projeteis_jogador):
+    def atirar(self, todos_sprites, grupo_projeteis_jogador, aliens):
         agora = pygame.time.get_ticks()
         if agora - self.ultimo_tiro > self.cooldown_tiro:
             self.ultimo_tiro = agora
             pos_tiro_y = self.rect.top + (self.altura_base * 0.2)
-            projetil = Projetil(self.rect.centerx, pos_tiro_y, AZUL_JOGADOR_PROJETIL, -12)
-            todos_sprites.add(projetil)
-            grupo_projeteis_jogador.add(projetil)
+            if self.multi_shot_active:
+                offsets = [-15, 0, 15]
+                for offset in offsets:
+                    projetil = Projetil(self.rect.centerx + offset, pos_tiro_y, AZUL_JOGADOR_PROJETIL, -12, is_homing=self.homing_active, aliens=aliens)
+                    todos_sprites.add(projetil)
+                    grupo_projeteis_jogador.add(projetil)
+            else:
+                projetil = Projetil(self.rect.centerx, pos_tiro_y, AZUL_JOGADOR_PROJETIL, -12, is_homing=self.homing_active, aliens=aliens)
+                todos_sprites.add(projetil)
+                grupo_projeteis_jogador.add(projetil)
 
 class Alien(pygame.sprite.Sprite):
     def __init__(self, x, y, tipo):
         super().__init__()
         mapa_pixels_alien_data = {
-            1: (ALIEN_1_PIXEL_MAPS, random.choice(COR_ALIEN_1), 0.5),
-            2: (ALIEN_2_PIXEL_MAPS, random.choice(COR_ALIEN_2), 0.4),
-            3: (ALIEN_3_PIXEL_MAPS, random.choice(COR_ALIEN_3), 0.3)
+            1: (ALIEN_1_PIXEL_MAPS, random.choice(COR_ALIEN_1), 0.5, 10, 0.1),
+            2: (ALIEN_2_PIXEL_MAPS, random.choice(COR_ALIEN_2), 0.4, 20, 0.15),
+            3: (ALIEN_3_PIXEL_MAPS, random.choice(COR_ALIEN_3), 0.3, 30, 0.2),
+            4: (ALIEN_BOSS_PIXEL_MAPS, random.choice(COR_ALIEN_BOSS), 0.6, 100, 0.05),  # Boss
+            5: (ALIEN_STEALTH_PIXEL_MAPS, random.choice(COR_ALIEN_STEALTH), 0.5, 15, 0.3)  # Stealth
         }[tipo]
         self.frames, self.anim_delay = criar_sprite_pixel_art(mapa_pixels_alien_data[0], mapa_pixels_alien_data[1], anim_delay=mapa_pixels_alien_data[2])
         self.frame_atual = 0
@@ -524,13 +616,29 @@ class Alien(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)
         self.ultimo_update_anim = pygame.time.get_ticks()
-        self.pontos = {1: 10, 2: 20, 3: 30}[tipo]
-        self.is_swooping = random.random() < 0.1 * tipo
+        self.pontos = mapa_pixels_alien_data[3]
+        self.is_swooping = random.random() < mapa_pixels_alien_data[4] * tipo
         self.swoop_angle = 0
         self.swoop_speed = 2 if self.is_swooping else 0
+        self.tipo = tipo
+        self.vida = 3 if tipo == 4 else 1  # Boss tem mais vida
+        self.is_cloaked = False if tipo != 5 else True
+        self.cloak_timer = 0
+        self.cloak_interval = random.randint(100, 200)
 
     def update(self, vel_x_alien, vel_y_alien):
-        if self.is_swooping:
+        if self.tipo == 4:  # Boss movement
+            self.rect.x += math.sin(pygame.time.get_ticks() / 1000) * 2
+            self.rect.y += vel_y_alien * 0.5
+        elif self.tipo == 5:  # Stealth movement
+            self.cloak_timer += 1
+            if self.cloak_timer > self.cloak_interval:
+                self.is_cloaked = not self.is_cloaked
+                self.cloak_timer = 0
+                self.image.set_alpha(100 if self.is_cloaked else 255)
+            self.rect.x += vel_x_alien * 1.5
+            self.rect.y += vel_y_alien
+        elif self.is_swooping:
             self.swoop_angle += 0.05
             self.rect.y += math.sin(self.swoop_angle) * self.swoop_speed
             self.rect.x += vel_x_alien
@@ -542,21 +650,56 @@ class Alien(pygame.sprite.Sprite):
             self.ultimo_update_anim = agora
             self.frame_atual = (self.frame_atual + 1) % len(self.frames)
             self.image = self.frames[self.frame_atual]
+            if self.tipo == 5 and self.is_cloaked:
+                self.image.set_alpha(100)
 
 class Projetil(pygame.sprite.Sprite):
-    def __init__(self, x, y, cor, velocidade_y):
+    def __init__(self, x, y, cor, velocidade_y, is_homing=False, aliens=None):
         super().__init__()
-        self.frames, _ = criar_sprite_pixel_art(PROJETIL_PIXEL_MAP, cor)
-        self.image = self.frames[0]
+        self.frames, self.anim_delay = criar_sprite_pixel_art(LASER_PIXEL_MAPS, cor, anim_delay=0.1)
+        self.frame_atual = 0
+        self.image = self.frames[self.frame_atual]
         self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.centery = y
         self.velocidade_y = velocidade_y
+        self.ultimo_update = pygame.time.get_ticks()
+        self.is_homing = is_homing
+        self.aliens = aliens
+        self.target = None
+        self.particles = []
+        self.particle_timer = 0
 
     def update(self):
-        self.rect.y += self.velocidade_y
+        agora = pygame.time.get_ticks()
+        if agora - self.ultimo_update > self.anim_delay * 1000:
+            self.ultimo_update = agora
+            self.frame_atual = (self.frame_atual + 1) % len(self.frames)
+            self.image = self.frames[self.frame_atual]
+        self.particle_timer += 1
+        if self.particle_timer > 5:
+            self.particle_timer = 0
+            self.particles.append(Particle(self.rect.centerx, self.rect.bottom, AZUL_JOGADOR_PROJETIL, random.uniform(1, 2), math.radians(90), 10, size_range=(1, 2)))
+        if self.is_homing and self.aliens:
+            if not self.target or self.target not in self.aliens:
+                self.target = min(self.aliens, key=lambda a: math.hypot(a.rect.centerx - self.rect.centerx, a.rect.centery - self.rect.centery), default=None)
+            if self.target:
+                dx = self.target.rect.centerx - self.rect.centerx
+                dy = self.target.rect.centery - self.rect.centery
+                dist = math.hypot(dx, dy)
+                if dist > 0:
+                    self.rect.x += (dx / dist) * 2
+                    self.rect.y += (dy / dist) * 2
+        else:
+            self.rect.y += self.velocidade_y
+        self.particles = [p for p in self.particles if p.update()[0]]
         if self.rect.bottom < 0 or self.rect.top > ALTURA_TELA:
             self.kill()
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+        for particle in self.particles:
+            particle.draw(surface)
 
 class BarreiraSegmento(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -579,14 +722,18 @@ class Explosao(pygame.sprite.Sprite):
     def __init__(self, center, tamanho='pequeno'):
         super().__init__()
         if tamanho == 'pequeno':
-            self.frames, self.anim_delay = criar_sprite_pixel_art(EXPLOSAO_PIXEL_MAPS[:2], COR_EXPLOSAO_1, anim_delay=0.06)
+            self.frames, self.anim_delay = criar_sprite_pixel_art(EXPLOSAO_PIXEL_MAPS[:2], COR_EXPLOSAO_1, anim_delay=0.05)
+            num_particles = 15
         else:
-            self.frames, self.anim_delay = criar_sprite_pixel_art(EXPLOSAO_PIXEL_MAPS, COR_EXPLOSAO_2, anim_delay=0.08)
+            self.frames, self.anim_delay = criar_sprite_pixel_art(EXPLOSAO_PIXEL_MAPS, COR_EXPLOSAO_2, anim_delay=0.06)
+            num_particles = 30
         self.frame_atual = 0
         self.image = self.frames[self.frame_atual]
         self.rect = self.image.get_rect(center=center)
         self.ultimo_update = pygame.time.get_ticks()
-        self.particles = [Particle(center[0], center[1], COR_EXPLOSAO_1, random.uniform(1, 5), random.uniform(0, 2*math.pi), random.randint(10, 20)) for _ in range(10)]
+        self.particles = [Particle(center[0], center[1], COR_EXPLOSAO_1 if tamanho == 'pequeno' else COR_EXPLOSAO_2, 
+                                  random.uniform(2, 6), random.uniform(0, 2*math.pi), random.randint(15, 25), 
+                                  size_range=(2, 4) if tamanho == 'grande' else (1, 3)) for _ in range(num_particles)]
 
     def update(self):
         agora = pygame.time.get_ticks()
@@ -637,6 +784,8 @@ class Game:
         self.combo = 0
         self.combo_timer = 0
         self.score_flash = 0
+        self.shake_offset = (0, 0)
+        self.shake_frames = []
         self.criar_cenario_detalhado()
         self.background = self.criar_background()
 
@@ -707,14 +856,21 @@ class Game:
         espacamento_y = len(ALIEN_1_PIXEL_MAPS[0]) * PIXEL_SCALE * 1.5
         offset_x = (LARGURA_TELA - (num_colunas - 1) * espacamento_x) / 2
         offset_y = 60 + 40
-        for linha in range(num_linhas):
-            for coluna in range(num_colunas):
-                x = offset_x + coluna * espacamento_x
-                y = offset_y + linha * espacamento_y
-                tipo_alien = 3 if linha < 1 else 2 if linha < 3 else 1
-                alien = Alien(x, y, tipo_alien)
-                self.todos_sprites.add(alien)
-                self.aliens.add(alien)
+        if self.nivel % 5 == 0:  # Boss level
+            x = LARGURA_TELA // 2
+            y = offset_y
+            alien = Alien(x, y, 4)  # Boss
+            self.todos_sprites.add(alien)
+            self.aliens.add(alien)
+        else:
+            for linha in range(num_linhas):
+                for coluna in range(num_colunas):
+                    x = offset_x + coluna * espacamento_x
+                    y = offset_y + linha * espacamento_y
+                    tipo_alien = 5 if random.random() < 0.1 else (3 if linha < 1 else 2 if linha < 3 else 1)
+                    alien = Alien(x, y, tipo_alien)
+                    self.todos_sprites.add(alien)
+                    self.aliens.add(alien)
 
     def criar_barreiras(self):
         num_barreiras = 4
@@ -763,7 +919,7 @@ class Game:
 
     def aliens_atiram(self):
         for alien in self.aliens:
-            chance_base = self.chance_tiro_alien
+            chance_base = self.chance_tiro_alien * (2 if alien.tipo == 4 else 1)
             modificador_quantidade = (1 + ((5*11) - len(self.aliens)) / (5*11.0)) * 2
             if random.random() < chance_base * modificador_quantidade:
                 projetil = Projetil(alien.rect.centerx, alien.rect.bottom, VERMELHO_ALIEN_PROJETIL, 6)
@@ -771,20 +927,27 @@ class Game:
                 self.projeteis_aliens.add(projetil)
 
     def checar_colisoes(self):
-        atingidos = pygame.sprite.groupcollide(self.aliens, self.projeteis_jogador, True, True)
-        for alien_atingido in atingidos:
-            self.combo += 1
-            self.combo_timer = pygame.time.get_ticks()
-            multiplier = min(self.combo // 5 + 1, 5)
-            self.pontuacao += alien_atingido.pontos * multiplier
-            self.score_flash = 30
-            expl = Explosao(alien_atingido.rect.center, 'pequeno')
-            self.todos_sprites.add(expl)
-            if random.random() < 0.1:
-                tipo_powerup = random.choice(['vida', 'shoot', 'shield'])
-                powerup = PowerUp(alien_atingido.rect.centerx, alien_atingido.rect.centery, tipo_powerup)
-                self.todos_sprites.add(powerup)
-                self.powerups.add(powerup)
+        atingidos = pygame.sprite.groupcollide(self.aliens, self.projeteis_jogador, False, True)
+        for alien_atingido, projeteis in atingidos.items():
+            if alien_atingido.tipo == 5 and alien_atingido.is_cloaked:
+                continue  # Ignore hits on cloaked stealth aliens
+            alien_atingido.vida -= len(projeteis)
+            if alien_atingido.vida <= 0:
+                alien_atingido.kill()
+                self.combo += 1
+                self.combo_timer = pygame.time.get_ticks()
+                multiplier = min(self.combo // 5 + 1, 5)
+                self.pontuacao += alien_atingido.pontos * multiplier
+                self.score_flash = 30
+                tamanho = 'grande' if alien_atingido.tipo == 4 else 'pequeno'
+                expl = Explosao(alien_atingido.rect.center, tamanho)
+                self.todos_sprites.add(expl)
+                self.shake_frames = screen_shake(5, 10) if tamanho == 'grande' else []
+                if random.random() < 0.15:
+                    tipo_powerup = random.choice(['vida', 'shoot', 'shield', 'multi', 'speed', 'homing'])
+                    powerup = PowerUp(alien_atingido.rect.centerx, alien_atingido.rect.centery, tipo_powerup)
+                    self.todos_sprites.add(powerup)
+                    self.powerups.add(powerup)
             if not self.aliens:
                 self.nivel += 1
                 self.mostrar_mensagem_temporaria(f"Nível {self.nivel}!", 1.5)
@@ -801,12 +964,22 @@ class Game:
                 elif powerup.tipo == 'shield':
                     self.jogador.shield_active = True
                     self.jogador.shield_start = pygame.time.get_ticks()
+                elif powerup.tipo == 'multi':
+                    self.jogador.multi_shot_active = True
+                    self.jogador.multi_shot_start = pygame.time.get_ticks()
+                elif powerup.tipo == 'speed':
+                    self.jogador.speed_boost_active = True
+                    self.jogador.speed_boost_start = pygame.time.get_ticks()
+                elif powerup.tipo == 'homing':
+                    self.jogador.homing_active = True
+                    self.jogador.homing_start = pygame.time.get_ticks()
 
             if not self.jogador.shield_active and pygame.sprite.spritecollide(self.jogador, self.projeteis_aliens, True):
                 self.vidas -= 1
                 self.combo = 0
                 expl = Explosao(self.jogador.rect.center, 'grande')
                 self.todos_sprites.add(expl)
+                self.shake_frames = screen_shake(5, 10)
                 for _ in range(20):
                     self.jogador.particles.append(Particle(self.jogador.rect.centerx, self.jogador.rect.centery, VERDE_JOGADOR, random.uniform(2, 6), random.uniform(0, 2*math.pi), 30))
                 if self.vidas <= 0:
@@ -821,10 +994,14 @@ class Game:
         if pygame.sprite.groupcollide(self.aliens, self.barreiras, False, True):
             pass
         if self.jogador and not self.jogador.shield_active:
-            if pygame.sprite.spritecollide(self.jogador, self.aliens, False):
+            aliens_collided = pygame.sprite.spritecollide(self.jogador, self.aliens, False)
+            for alien in aliens_collided:
+                if alien.tipo == 5 and alien.is_cloaked:
+                    continue
                 self.vidas = 0
                 expl = Explosao(self.jogador.rect.center, 'grande')
                 self.todos_sprites.add(expl)
+                self.shake_frames = screen_shake(5, 10)
                 for _ in range(20):
                     self.jogador.particles.append(Particle(self.jogador.rect.centerx, self.jogador.rect.centery, VERDE_JOGADOR, random.uniform(2, 6), random.uniform(0, 2*math.pi), 30))
                 self.estado_jogo = "game_over"
@@ -835,6 +1012,7 @@ class Game:
                     self.estado_jogo = "game_over"
                     expl_jogador = Explosao(self.jogador.rect.center, 'grande')
                     self.todos_sprites.add(expl_jogador)
+                    self.shake_frames = screen_shake(5, 10)
                     for _ in range(20):
                         self.jogador.particles.append(Particle(self.jogador.rect.centerx, self.jogador.rect.centery, VERDE_JOGADOR, random.uniform(2, 6), random.uniform(0, 2*math.pi), 30))
                     if self.jogador: self.jogador.kill()
@@ -871,9 +1049,19 @@ class Game:
                 self.tela.blit(vida_sprite, (LARGURA_TELA - (i + 1) * (vida_sprite.get_width() + 10) - 20, 15))
         texto_nivel = self.fonte_hud.render(f"NÍVEL: {self.nivel}", True, COR_TEXTO)
         self.tela.blit(texto_nivel, ((LARGURA_TELA - texto_nivel.get_width()) // 2, 15))
-        if self.jogador and self.jogador.shield_active:
-            shield_text = self.fonte_hud.render("Escudo Ativo!", True, COR_SHIELD)
-            self.tela.blit(shield_text, (LARGURA_TELA - shield_text.get_width() - 20, 35))
+        if self.jogador:
+            if self.jogador.shield_active:
+                shield_text = self.fonte_hud.render("Escudo Ativo!", True, COR_SHIELD)
+                self.tela.blit(shield_text, (LARGURA_TELA - shield_text.get_width() - 20, 35))
+            if self.jogador.multi_shot_active:
+                multi_text = self.fonte_hud.render("Multi-Shot!", True, COR_POWERUP_MULTI)
+                self.tela.blit(multi_text, (LARGURA_TELA - multi_text.get_width() - 20, 55))
+            if self.jogador.speed_boost_active:
+                speed_text = self.fonte_hud.render("Speed Boost!", True, COR_POWERUP_SPEED)
+                self.tela.blit(speed_text, (LARGURA_TELA - speed_text.get_width() - 20, 75))
+            if self.jogador.homing_active:
+                homing_text = self.fonte_hud.render("Homing Missiles!", True, COR_POWERUP_HOMING)
+                self.tela.blit(homing_text, (LARGURA_TELA - homing_text.get_width() - 20, 95))
 
     def mostrar_mensagem_temporaria(self, texto, duracao_segundos):
         tela_anterior = self.tela.copy()
@@ -966,7 +1154,7 @@ class Game:
                     if evento.type == pygame.QUIT: self.rodando = False
                     if evento.type == pygame.KEYDOWN:
                         if evento.key == pygame.K_SPACE and self.jogador:
-                            self.jogador.atirar(self.todos_sprites, self.projeteis_jogador)
+                            self.jogador.atirar(self.todos_sprites, self.projeteis_jogador, self.aliens)
                         if evento.key == pygame.K_ESCAPE: self.rodando = False
                 if not self.rodando: break
                 if self.jogador: self.jogador.update()
@@ -987,15 +1175,24 @@ class Game:
                 if self.combo > 0 and pygame.time.get_ticks() - self.combo_timer > 2000:
                     self.combo = 0
                 self.tela.blit(self.background, (0, 0))
+                if self.shake_frames:
+                    self.shake_offset = self.shake_frames.pop(0)
+                else:
+                    self.shake_offset = (0, 0)
                 self.grupo_nebulas.draw(self.tela)
                 self.grupo_elementos_distantes.draw(self.tela)
                 self.grupo_estrelas.draw(self.tela)
                 self.grupo_cometas.draw(self.tela)
-                self.todos_sprites.draw(self.tela)
+                for sprite in self.todos_sprites:
+                    sprite.rect.move_ip(self.shake_offset)
+                    self.tela.blit(sprite.image, sprite.rect)
+                    sprite.rect.move_ip(-self.shake_offset[0], -self.shake_offset[1])
                 for sprite in self.todos_sprites:
                     if isinstance(sprite, Explosao):
                         for particle in sprite.particles:
                             particle.draw(self.tela)
+                    elif isinstance(sprite, Projetil):
+                        sprite.draw(self.tela)
                 self.desenhar_hud()
                 pygame.display.flip()
             elif self.estado_jogo == "game_over":
