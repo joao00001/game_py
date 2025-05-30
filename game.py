@@ -4,6 +4,7 @@ import math
 import numpy as np
 import asyncio
 import platform
+import os
 
 # --- Constantes Globais ---
 LARGURA_TELA = 800
@@ -87,11 +88,11 @@ PLAYER_PIXEL_MAP_BASE = [
     "  1 1 1  "
 ]
 PLAYER_THRUSTER_MAPS = [
-    [["   Ascending triangle 111   "], THRUSTER_COR_1],
-    [[" 11111 "], THRUSTER_COR_2],
-    [["1111111"], THRUSTER_COR_1],
-    [[" 11111 "], THRUSTER_COR_2],
-    [["  111  "], THRUSTER_COR_1]
+    [["   111   "], THRUSTER_COR_1],
+    [["  11111  "], THRUSTER_COR_2],
+    [[" 1111111 "], THRUSTER_COR_1],
+    [["  11111  "], THRUSTER_COR_2],
+    [["   111   "], THRUSTER_COR_1]
 ]
 ALIEN_1_PIXEL_MAPS = [
     [
@@ -242,10 +243,10 @@ class Particle:
         self.speed = speed
         self.angle = angle
         self.lifespan = lifespan
-        self.current_life = lifespan
+        self.current_life = self.lifespan
         self.size = random.randint(size_range[0], size_range[1]) * PIXEL_SCALE
 
-    def update(self):
+    def update(self, surface=None):
         self.pos_x += math.cos(self.angle) * self.speed
         self.pos_y += math.sin(self.angle) * self.speed
         self.current_life -= 1
@@ -254,7 +255,7 @@ class Particle:
 
     def draw(self, surface):
         temp_surf = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
-        pygame.draw.rect(temp_surf, (*self.cor[:3], self.current_life / self.lifespan * 255), (0, 0, self.size, self.size))
+        pygame.draw.rect(temp_surf, (*self.cor[:3], int(self.current_life / self.lifespan * 255)), (0, 0, self.size, self.size))
         surface.blit(temp_surf, (int(self.pos_x - self.size // 2), int(self.pos_y - self.size // 2)))
 
 class Nebula(pygame.sprite.Sprite):
@@ -288,26 +289,26 @@ class Estrela(pygame.sprite.Sprite):
             self.tamanho_pixel = 1
             self.velocidade = 0.2
             self.cor_base = COR_ESTRELA_3
-            self.chance_piscar = 0.001
+            self.chance_pulsar = 0.001
         elif self.camada == 1:
             self.tamanho_pixel = random.choice([1, 2])
             self.velocidade = 0.5
             self.cor_base = COR_ESTRELA_2
-            self.chance_piscar = 0.004
+            self.chance_pulsar = 0.004
         else:
             self.tamanho_pixel = random.choice([2, 3])
             self.velocidade = 0.8
             self.cor_base = COR_ESTRELA_1
-            self.chance_piscar = 0.01
+            self.chance_pulsar = 0.01
         self.cor_atual = self.cor_base
         self.image = pygame.Surface((self.tamanho_pixel * PIXEL_SCALE, self.tamanho_pixel * PIXEL_SCALE))
         self.image.fill(self.cor_atual)
         self.rect = self.image.get_rect()
         self.rect.x = random.randrange(0, LARGURA_TELA)
         self.rect.y = random.randrange(0, ALTURA_TELA)
-        self.piscando = False
-        self.duracao_pisca = random.randint(3, 7)
-        self.timer_pisca = 0
+        self.pulsando = False
+        self.duracao_pulsar = random.randint(3, 7)
+        self.timer_pulsar = 0
 
     def update(self):
         self.rect.y += self.velocidade
@@ -318,16 +319,16 @@ class Estrela(pygame.sprite.Sprite):
             elif self.camada == 2: self.tamanho_pixel = random.choice([2, 3])
             self.image = pygame.Surface((self.tamanho_pixel * PIXEL_SCALE, self.tamanho_pixel * PIXEL_SCALE))
             self.image.fill(self.cor_base)
-        if self.piscando:
-            self.timer_pisca -= 1
-            if self.timer_pisca <= 0:
-                self.piscando = False
+        if self.pulsando:
+            self.timer_pulsar -= 1
+            if self.timer_pulsar <= 0:
+                self.pulsando = False
                 self.image.set_alpha(255)
             else:
                 self.image.set_alpha(random.choice([80, 120, 180, 255]))
-        elif random.random() < self.chance_piscar:
-            self.piscando = True
-            self.timer_pisca = self.duracao_pisca
+        elif random.random() < self.chance_pulsar:
+            self.pulsando = True
+            self.timer_pulsar = self.duracao_pulsar
 
 class Planeta(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -349,11 +350,11 @@ class Planeta(pygame.sprite.Sprite):
             if y < centro_y - self.anel_altura // 4:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_EXTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
             elif y < centro_y - self.anel_altura // 5:
-                pass  # Cassini Division (gap)
+                pass  # Cassini gap
             else:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_INTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
 
-        # Desenhar planeta com faixas de nuvens
+        # Desenhar planeta com faixas
         for y in range(centro_y - self.raio_planeta, centro_y + self.raio_planeta):
             width = int(2 * self.raio_planeta * math.sqrt(1 - ((y - centro_y) / self.raio_planeta) ** 2))
             x_start = centro_x - width // 2
@@ -365,7 +366,7 @@ class Planeta(pygame.sprite.Sprite):
                 color = COR_SATURNO_PLANETA
             pygame.draw.line(self.image, color, (x_start, y), (x_start + width, y), PIXEL_SCALE)
 
-        # Desenhar sombra dos anéis no planeta
+        # Desenhar sombra dos anéis
         shadow_y_start = centro_y - self.raio_planeta // 2
         for y in range(shadow_y_start, shadow_y_start + self.raio_planeta // 4):
             width = int(2 * self.raio_planeta * math.sqrt(1 - ((y - centro_y) / self.raio_planeta) ** 2))
@@ -379,7 +380,7 @@ class Planeta(pygame.sprite.Sprite):
             if y > centro_y + self.anel_altura // 4:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_EXTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
             elif y > centro_y + self.anel_altura // 5:
-                pass  # Cassini Division (gap)
+                pass  # Cassini gap
             else:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_INTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
 
@@ -413,11 +414,11 @@ class Cometa(pygame.sprite.Sprite):
             self.pos_y = -self.image_dim
         elif start_side == "left":
             self.pos_x = -self.image_dim
-            self.pos_y = random.uniform(0, ALTURA_TELA / 2)
+            self.pos_y = random.randint(0, ALTURA_TELA // 2)
             self.angle = random.uniform(math.radians(280), math.radians(350))
         else:
             self.pos_x = LARGURA_TELA + self.image_dim
-            self.pos_y = random.uniform(0, ALTURA_TELA / 2)
+            self.pos_y = random.randint(0, ALTURA_TELA // 2)
             self.angle = random.uniform(math.radians(190), math.radians(260))
         self.rect.topleft = (int(self.pos_x), int(self.pos_y))
         self.vel_x = math.cos(self.angle) * self.speed
@@ -443,11 +444,11 @@ class Cometa(pygame.sprite.Sprite):
             tamanho_segmento = max(1 * PIXEL_SCALE, int((2 * PIXEL_SCALE) * fator_diminuicao**2))
             cor_segmento = COR_COMETA_CAUDA_1 if fator_diminuicao > 0.5 else COR_COMETA_CAUDA_2
             alpha = int(200 * fator_diminuicao)
-            cor_com_alpha = (*cor_segmento, alpha)
+            cor_com_alpha = (*cor_segmento[:3], alpha)
             temp_surf_seg = pygame.Surface((tamanho_segmento, tamanho_segmento), pygame.SRCALPHA)
             temp_surf_seg.fill((0,0,0,0))
-            pygame.draw.circle(temp_surf_seg, cor_com_alpha, (tamanho_segmento//2, tamanho_segmento//2), tamanho_segmento//2)
-            self.image.blit(temp_surf_seg, (segmento_x - tamanho_segmento//2, segmento_y - tamanho_segmento//2))
+            pygame.draw.circle(temp_surf_seg, cor_com_alpha, (tamanho_segmento // 2, tamanho_segmento // 2), tamanho_segmento // 2)
+            self.image.blit(temp_surf_seg, (segmento_x - tamanho_segmento // 2, segmento_y - tamanho_segmento // 2))
 
     def update(self):
         self.time += 0.1
@@ -456,10 +457,10 @@ class Cometa(pygame.sprite.Sprite):
         self.rect.x = int(self.pos_x)
         self.rect.y = int(self.pos_y)
         self._desenhar_cometa()
-        if self.rect.right < -self.image_dim or \
-           self.rect.left > LARGURA_TELA + self.image_dim or \
-           self.rect.bottom < -self.image_dim or \
-           self.rect.top > ALTURA_TELA + self.image_dim:
+        if (self.rect.right < -self.image_dim or
+            self.rect.left > LARGURA_TELA + self.image_dim or
+            self.rect.bottom < -self.image_dim or
+            self.rect.top > ALTURA_TELA + self.image_dim):
             self.kill()
 
 class PowerUp(pygame.sprite.Sprite):
@@ -488,7 +489,7 @@ class PowerUp(pygame.sprite.Sprite):
         self.pulse_timer += 0.05
         scale = 1 + 0.1 * math.sin(self.pulse_timer)
         self.image = pygame.transform.scale(self.frames[0], (int(self.frames[0].get_width() * scale), int(self.frames[0].get_height() * scale)))
-        self.rect = self.image.get_rect(center=self.rect.center)
+        self.rect = self.image.get_rect(center=(self.rect.centerx, self.rect.centery))
         if self.rect.top > ALTURA_TELA:
             self.kill()
 
@@ -499,7 +500,7 @@ class Player(pygame.sprite.Sprite):
         self.base_image = self.base_frames[0]
         self.thruster_anim_frames = []
         for p_map, cor in PLAYER_THRUSTER_MAPS:
-            frames, _ = criar_sprite_pixel_art(p_map, cor, escala=PIXEL_SCALE)
+            frames, _ = criar_sprite_pixel_art(p_map, cor)
             self.thruster_anim_frames.append(frames[0])
         self.thruster_frame_atual = 0
         self.thruster_anim_delay = 0.06
@@ -584,7 +585,7 @@ class Player(pygame.sprite.Sprite):
             particle_y = self.rect.bottom
             self.particles.append(Particle(particle_x, particle_y, THRUSTER_COR_1, random.uniform(1, 3), random.uniform(math.radians(90), math.radians(270)), 20))
 
-    def atirar(self, todos_sprites, grupo_projeteis_jogador, aliens):
+    def atirar(self, todos_sprites, grupo_projetil_jogador, aliens):
         agora = pygame.time.get_ticks()
         if agora - self.ultimo_tiro > self.cooldown_tiro:
             self.ultimo_tiro = agora
@@ -594,11 +595,11 @@ class Player(pygame.sprite.Sprite):
                 for offset in offsets:
                     projetil = Projetil(self.rect.centerx + offset, pos_tiro_y, AZUL_JOGADOR_PROJETIL, -12, is_homing=self.homing_active, aliens=aliens)
                     todos_sprites.add(projetil)
-                    grupo_projeteis_jogador.add(projetil)
+                    grupo_projetil_jogador.add(projetil)
             else:
                 projetil = Projetil(self.rect.centerx, pos_tiro_y, AZUL_JOGADOR_PROJETIL, -12, is_homing=self.homing_active, aliens=aliens)
                 todos_sprites.add(projetil)
-                grupo_projeteis_jogador.add(projetil)
+                grupo_projetil_jogador.add(projetil)
 
 class Alien(pygame.sprite.Sprite):
     def __init__(self, x, y, tipo):
@@ -607,21 +608,21 @@ class Alien(pygame.sprite.Sprite):
             1: (ALIEN_1_PIXEL_MAPS, random.choice(COR_ALIEN_1), 0.5, 10, 0.1),
             2: (ALIEN_2_PIXEL_MAPS, random.choice(COR_ALIEN_2), 0.4, 20, 0.15),
             3: (ALIEN_3_PIXEL_MAPS, random.choice(COR_ALIEN_3), 0.3, 30, 0.2),
-            4: (ALIEN_BOSS_PIXEL_MAPS, random.choice(COR_ALIEN_BOSS), 0.6, 100, 0.05),  # Boss
-            5: (ALIEN_STEALTH_PIXEL_MAPS, random.choice(COR_ALIEN_STEALTH), 0.5, 15, 0.3)  # Stealth
+            4: (ALIEN_BOSS_PIXEL_MAPS, random.choice(COR_ALIEN_BOSS), 0.6, 100, 0.05),
+            5: (ALIEN_STEALTH_PIXEL_MAPS, random.choice(COR_ALIEN_STEALTH), 0.5, 15, 0.3)
         }[tipo]
         self.frames, self.anim_delay = criar_sprite_pixel_art(mapa_pixels_alien_data[0], mapa_pixels_alien_data[1], anim_delay=mapa_pixels_alien_data[2])
         self.frame_atual = 0
-        self.image = self.frames[self.frame_atual]
+        self.image = self.frames[0]
         self.rect = self.image.get_rect()
-        self.rect.topleft = (x, y)
+        self.rect.topleft = (x, y))
         self.ultimo_update_anim = pygame.time.get_ticks()
         self.pontos = mapa_pixels_alien_data[3]
         self.is_swooping = random.random() < mapa_pixels_alien_data[4] * tipo
         self.swoop_angle = 0
         self.swoop_speed = 2 if self.is_swooping else 0
         self.tipo = tipo
-        self.vida = 3 if tipo == 4 else 1  # Boss tem mais vida
+        self.vida = 3 if tipo == 4 else 1
         self.is_cloaked = False if tipo != 5 else True
         self.cloak_timer = 0
         self.cloak_interval = random.randint(100, 200)
@@ -635,7 +636,7 @@ class Alien(pygame.sprite.Sprite):
             if self.cloak_timer > self.cloak_interval:
                 self.is_cloaked = not self.is_cloaked
                 self.cloak_timer = 0
-                self.image.set_alpha(100 if self.is_cloaked else 255)
+                self.image.set_alpha(100, if self.is_cloaked else 255)
             self.rect.x += vel_x_alien * 1.5
             self.rect.y += vel_y_alien
         elif self.is_swooping:
@@ -646,9 +647,9 @@ class Alien(pygame.sprite.Sprite):
             self.rect.x += vel_x_alien
             self.rect.y += vel_y_alien
         agora = pygame.time.get_ticks()
-        if agora - self.ultimo_update_anim > self.anim_delay * 1000:
+        if agora_time - self.ultimo_update_anim > self.anim_delay * 1000:
             self.ultimo_update_anim = agora
-            self.frame_atual = (self.frame_atual + 1) % len(self.frames)
+            self.frame_atual = (self.frame_atual + 1) % len(self.frames))
             self.image = self.frames[self.frame_atual]
             if self.tipo == 5 and self.is_cloaked:
                 self.image.set_alpha(100)
@@ -658,10 +659,9 @@ class Projetil(pygame.sprite.Sprite):
         super().__init__()
         self.frames, self.anim_delay = criar_sprite_pixel_art(LASER_PIXEL_MAPS, cor, anim_delay=0.1)
         self.frame_atual = 0
-        self.image = self.frames[self.frame_atual]
+        self.image = self.frames[0]
         self.rect = self.image.get_rect()
-        self.rect.centerx = x
-        self.rect.centery = y
+        self.rect.center = (x, y)
         self.velocidade_y = velocidade_y
         self.ultimo_update = pygame.time.get_ticks()
         self.is_homing = is_homing
@@ -677,9 +677,9 @@ class Projetil(pygame.sprite.Sprite):
             self.frame_atual = (self.frame_atual + 1) % len(self.frames)
             self.image = self.frames[self.frame_atual]
         self.particle_timer += 1
-        if self.particle_timer > 5:
+        if self.particle_timer >= 5:
             self.particle_timer = 0
-            self.particles.append(Particle(self.rect.centerx, self.rect.bottom, AZUL_JOGADOR_PROJETIL, random.uniform(1, 2), math.radians(90), 10, size_range=(1, 2)))
+            self.particles.append(Particle(self.rect.centerx, self.rect.centery, AZUL_JOGADOR_PROJETIL, random.uniform(1, 2), math.radians(90), 10, size_range=(1, 2)))
         if self.is_homing and self.aliens:
             if not self.target or self.target not in self.aliens:
                 self.target = min(self.aliens, key=lambda a: math.hypot(a.rect.centerx - self.rect.centerx, a.rect.centery - self.rect.centery), default=None)
@@ -721,37 +721,37 @@ class BarreiraSegmento(pygame.sprite.Sprite):
 class Explosao(pygame.sprite.Sprite):
     def __init__(self, center, tamanho='pequeno'):
         super().__init__()
-        # Escolher uma única cor para cada frame da explosão
         if tamanho == 'pequeno':
             colors = COR_EXPLOSAO_1
-            num_particles = 15
+            num_particles = 12
             self.anim_delay = 0.05
         else:
             colors = COR_EXPLOSAO_2
-            num_particles = 30
+            num_particles = 20
             self.anim_delay = 0.06
         self.frames = []
         for i, p_map in enumerate(EXPLOSAO_PIXEL_MAPS):
-            # Usar uma cor diferente para cada frame, ciclando pela lista de cores
-            cor = colors[i % len(colors)]
-            frame, _ = criar_sprite_pixel_art([p_map], cor, anim_delay=self.anim_delay)
+            color = colors[i % len(colors)]
+            frame, _ = criar_sprite_pixel_art([p_map], color, anim_delay=self.anim_delay)
             self.frames.append(frame[0])
         self.frame_atual = 0
-        self.image = self.frames[self.frame_atual]
+        self.image = self.frames[0]
         self.rect = self.image.get_rect(center=center)
         self.ultimo_update = pygame.time.get_ticks()
-        # Escolher uma única cor para as partículas
         particle_color = random.choice(colors)
-        self.particles = [Particle(center[0], center[1], particle_color, 
-                                  random.uniform(2, 6), random.uniform(0, 2*math.pi), random.randint(15, 25), 
-                                  size_range=(2, 4) if tamanho == 'grande' else (1, 3)) for _ in range(num_particles)]
+        self.particles = [
+            Particle(center[0], center[1], particle_color,
+                     random.uniform(2, 6), random.uniform(0, 2*math.pi),
+                     random.randint(15, 25), size_range=(2, 4) if tamanho == 'grande' else (1, 3))
+            for _ in range(num_particles)
+        ]
 
     def update(self):
         agora = pygame.time.get_ticks()
         if agora - self.ultimo_update > self.anim_delay * 1000:
             self.ultimo_update = agora
             self.frame_atual += 1
-            if self.frame_atual == len(self.frames):
+            if self.frame_atual >= len(self.frames):
                 self.kill()
             else:
                 center = self.rect.center
@@ -764,9 +764,17 @@ class Game:
         pygame.init()
         self.tela = pygame.display.set_mode((LARGURA_TELA, ALTURA_TELA))
         pygame.display.set_caption("Space Invaders Pixel Remix")
-        self.fonte_hud = pygame.font.Font(None, 30)
-        self.fonte_titulo = pygame.font.Font(None, 74)
-        self.fonte_media = pygame.font.Font(None, 50)
+        # Carregar fonte pixelada
+        font_path = os.path.join("C:\\Users\\joaoC\\game_py", "PressStart2P-Regular.ttf")
+        try:
+            self.fonte_hud = pygame.font.Font(font_path, 16)  # HUD (menor para legibilidade)
+            self.fonte_titulo = pygame.font.Font(font_path, 32)  # Títulos grandes
+            self.fonte_media = pygame.font.Font(font_path, 24)  # Mensagens intermediárias
+        except FileNotFoundError:
+            print(f"Erro: Fonte 'PressStart2P-Regular.ttf' não encontrada em {font_path}. Baixe a fonte e coloque-a no diretório do jogo.")
+            self.fonte_hud = pygame.font.Font(None, 30)
+            self.fonte_titulo = pygame.font.Font(None, 74)
+            self.fonte_media = pygame.font.Font(None, 50)
         self.rodando = True
         self.estado_jogo = "tela_inicio"
         self.todos_sprites = pygame.sprite.Group()
@@ -783,34 +791,35 @@ class Game:
         self.pontuacao = 0
         self.vidas = 3
         self.nivel = 1
-        self.vel_x_alien_base = 1.5 * PIXEL_SCALE / 2
+        self.vel_x_alien_base = 2.0 * PIXEL_SCALE / 4
+        self.vel_x_alien = self.vel_x_alien_base
         self.vel_x_alien = self.vel_x_alien_base
         self.vel_y_alien_descida = 12 * PIXEL_SCALE / 4
         self.chance_tiro_alien = 0.002
-        self.alien_move_timer_max = 50
+        self.alien_move_timer_max = 30
         self.alien_move_timer = 0
         self.alien_direcao_descida_pendente = False
         self.chance_spawn_cometa = 0.008
-        self.max_cometas_na_tela = 3
+        self.max_cometas = 3
         self.combo = 0
         self.combo_timer = 0
         self.score_flash = 0
         self.shake_offset = (0, 0)
         self.shake_frames = []
-        self.criar_cenario_detalhado()
-        self.background = self.criar_background()
+        self.criar_cenario()
+        self.background = self._criar_background()
 
-    def criar_background(self):
+    def _criar_background(self):
         background = pygame.Surface((LARGURA_TELA, ALTURA_TELA))
         background.fill(FUNDO_ESPACO)
         gradient = pygame.Surface((LARGURA_TELA, ALTURA_TELA // 2), pygame.SRCALPHA)
         for y in range(ALTURA_TELA // 2):
-            alpha = int(50 * (1 - y / (ALTURA_TELA // 2)))
+            alpha = int(50 * (1 - y / (ALTURA_TELA / 2)))
             pygame.draw.line(gradient, (100, 100, 150, alpha), (0, y), (LARGURA_TELA, y))
         background.blit(gradient, (0, 0))
         return background
 
-    def criar_cenario_detalhado(self):
+    def criar_cenario(self):
         self.grupo_estrelas.empty()
         self.grupo_elementos_distantes.empty()
         self.grupo_cometas.empty()
@@ -829,20 +838,19 @@ class Game:
             y = random.randint(size // 2, ALTURA_TELA - size // 2)
             nebula = Nebula(x, y, size)
             self.grupo_nebulas.add(nebula)
-        self.grupo_nebulas.add(nebula)
 
     def gerenciar_cometas(self):
-        if len(self.grupo_cometas) < self.max_cometas_na_tela and random.random() < self.chance_spawn_cometa:
+        if len(self.grupo_cometas) < self.max_cometas and random.random() < self.chance_spawn_cometa:
             cometa = Cometa()
             self.grupo_cometas.add(cometa)
 
-    def resetar_jogo_completo(self):
+    def resetar(self):
         self.pontuacao = 0
         self.vidas = 3
         self.nivel = 1
         self.combo = 0
         self.combo_timer = 0
-        self.criar_cenario_detalhado()
+        self.criar_cenario()
         self.iniciar_nova_onda()
         self.estado_jogo = "jogando"
 
@@ -859,26 +867,26 @@ class Game:
         self.criar_barreiras()
         self.vel_x_alien = self.vel_x_alien_base + (self.nivel - 1) * 0.3
         self.chance_tiro_alien = 0.002 + (self.nivel - 1) * 0.0008
-        self.alien_move_timer_max = max(10, 50 - (self.nivel - 1) * 5)
+        self.alien_move_timer_max = max(10, 30 - (self.nivel - 1) * 3)
 
     def criar_aliens(self):
         num_linhas = 5
         num_colunas = 11
-        espacamento_x = len(ALIEN_1_PIXEL_MAPS[0][0]) * PIXEL_SCALE * 1.8
-        espacamento_y = len(ALIEN_1_PIXEL_MAPS[0]) * PIXEL_SCALE * 1.5
-        offset_x = (LARGURA_TELA - (num_colunas - 1) * espacamento_x) / 2
-        offset_y = 60 + 40
-        if self.nivel % 5 == 0:  # Boss level
+        espaco_x = len(ALIEN_1_PIXEL_MAPS[0][0]) * PIXEL_SCALE * 1.8
+        espaco_y = len(ALIEN_1_PIXEL_MAPS[0]) * PIXEL_SCALE * 1.5
+        offset_x = (LARGURA_TELA - (num_colunas - 1) * espaco_x) / 2
+        offset_y = 60
+        if self.nivel % 5 == 0:
             x = LARGURA_TELA // 2
             y = offset_y
-            alien = Alien(x, y, 4)  # Boss
+            alien = Alien(x, y, 4)
             self.todos_sprites.add(alien)
             self.aliens.add(alien)
         else:
             for linha in range(num_linhas):
                 for coluna in range(num_colunas):
-                    x = offset_x + coluna * espacamento_x
-                    y = offset_y + linha * espacamento_y
+                    x = offset_x + coluna * espaco_x
+                    y = offset_y + linha * espaco_y
                     tipo_alien = 5 if random.random() < 0.1 else (3 if linha < 1 else 2 if linha < 3 else 1)
                     alien = Alien(x, y, tipo_alien)
                     self.todos_sprites.add(alien)
@@ -893,11 +901,11 @@ class Game:
         for i in range(num_barreiras):
             centro_x_barreira = (i + 1) * largura_barreira_total
             for col_idx in range(4):
-                for lin_idx in range(3):
-                    if not (lin_idx == 0 and col_idx in [1, 2]):
+                for row_idx in range(3):
+                    if not (row_idx == 0 and col_idx in [1, 2]):
                         x_offset_multiplicador = col_idx - 1.5
                         x = centro_x_barreira + (x_offset_multiplicador * segmento_largura)
-                        y = y_base_barreira - ((2 - lin_idx) * segmento_altura)
+                        y = y_base_barreira - ((2 - row_idx) * segmento_altura)
                         segmento = BarreiraSegmento(x, y)
                         self.todos_sprites.add(segmento)
                         self.barreiras.add(segmento)
@@ -942,7 +950,7 @@ class Game:
         atingidos = pygame.sprite.groupcollide(self.aliens, self.projeteis_jogador, False, True)
         for alien_atingido, projeteis in atingidos.items():
             if alien_atingido.tipo == 5 and alien_atingido.is_cloaked:
-                continue  # Ignore hits on cloaked stealth aliens
+                continue
             alien_atingido.vida -= len(projeteis)
             if alien_atingido.vida <= 0:
                 alien_atingido.kill()
@@ -1036,7 +1044,6 @@ class Game:
 
     def colisao_projetil_barreira(self, projetil, barreira_segmento):
         barreira_segmento.atingido()
-        # Usar uma única cor para a explosão da barreira
         expl = Explosao(projetil.rect.center, 'pequeno')
         expl.frames, expl.anim_delay = criar_sprite_pixel_art([["1"]], COR_BARREIRA, escala=PIXEL_SCALE, anim_delay=0.05)
         self.todos_sprites.add(expl)
@@ -1091,7 +1098,7 @@ class Game:
     def tela_de_inicio(self):
         temp_estrelas = pygame.sprite.Group()
         temp_nebulas = pygame.sprite.Group()
-        for _ in range(60): temp_estrelas.add(Estrela(random.randint(0,2)))
+        for _ in range(60): temp_estrelas.add(Estrela(camada=random.randint(0,2)))
         for _ in range(2):
             size = random.choice([200, 300])
             x = random.randint(size // 2, LARGURA_TELA - size // 2)
@@ -1104,7 +1111,7 @@ class Game:
                 if evento.type == pygame.QUIT: self.rodando = False
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_RETURN:
-                        self.resetar_jogo_completo()
+                        self.resetar()
                         esperando_input = False
                     if evento.key == pygame.K_ESCAPE: self.rodando = False
             self.tela.blit(self.background, (0, 0))
@@ -1126,7 +1133,7 @@ class Game:
     def tela_game_over(self):
         temp_estrelas = pygame.sprite.Group()
         temp_nebulas = pygame.sprite.Group()
-        for _ in range(60): temp_estrelas.add(Estrela(random.randint(0,2)))
+        for _ in range(60): temp_estrelas.add(Estrela(camada=random.randint(0,2)))
         for _ in range(2):
             size = random.choice([200, 300])
             x = random.randint(size // 2, LARGURA_TELA - size // 2)
@@ -1139,7 +1146,7 @@ class Game:
                 if evento.type == pygame.QUIT: self.rodando = False
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_RETURN:
-                        self.resetar_jogo_completo()
+                        self.resetar()
                         esperando_input = False
                     if evento.key == pygame.K_ESCAPE: self.rodando = False
             self.tela.blit(self.background, (0, 0))
