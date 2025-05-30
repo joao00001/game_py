@@ -18,7 +18,7 @@ BRANCO = (230, 230, 230)
 VERDE_JOGADOR = (0, 255, 128)
 VERMELHO_ALIEN_PROJETIL = (255, 80, 80)
 AZUL_JOGADOR_PROJETIL = (128, 200, 255)
-COR_ALIEN_1 = [(255, 255, 255), (200, 255, 200), (255, 200, 200)]
+COR_ALIEN_1 = [(255, 255, 255), (200, 255, 200), (255, 200, 200)]  # Varied colors
 COR_ALIEN_2 = [(255, 0, 255), (200, 100, 255), (255, 100, 200)]
 COR_ALIEN_3 = [(255, 255, 0), (200, 200, 100), (255, 200, 100)]
 COR_BARREIRA = (0, 180, 0)
@@ -30,6 +30,7 @@ COR_POWERUP_VIDA = (0, 255, 0)
 COR_POWERUP_SHOOT = (0, 200, 255)
 COR_POWERUP_SHIELD = (255, 255, 0)
 COR_SHIELD = (100, 200, 255, 150)
+
 COR_ESTRELA_1 = (200, 200, 220)
 COR_ESTRELA_2 = (220, 220, 180)
 COR_ESTRELA_3 = (180, 180, 220)
@@ -47,9 +48,6 @@ COR_COMETA_CAUDA_2 = (100, 150, 220)
 COR_NEBULA_1 = (120, 100, 150, 80)
 COR_NEBULA_2 = (100, 120, 150, 60)
 COR_NEBULA_3 = (150, 100, 120, 50)
-COR_GALAXY_1 = (220, 220, 240, 60)
-COR_GALAXY_2 = (180, 200, 220, 50)
-COR_GALAXY_3 = (240, 220, 180, 40)
 
 # --- Funções Auxiliares ---
 def desenhar_pixel_art(surface, pixel_map, cor, pos_x, pos_y, escala=PIXEL_SCALE):
@@ -70,46 +68,6 @@ def criar_sprite_pixel_art(pixel_maps, cor, escala=PIXEL_SCALE, anim_delay=0.5):
         desenhar_pixel_art(frame_surface, p_map, cor, 0, 0, escala)
         frames.append(frame_surface)
     return frames, anim_delay
-
-def simple_noise(x, y, seed=0):
-    random.seed(x * 1000 + y + seed)
-    return random.random()
-
-def generate_noise_map(width, height, scale=0.1, seed=0):
-    noise_map = np.zeros((height, width))
-    for y in range(height):
-        for x in range(width):
-            nx = x * scale
-            ny = y * scale
-            noise_map[y][x] = simple_noise(nx, ny, seed)
-    return noise_map
-
-def blur_surface(surface, radius=1):
-    array = pygame.surfarray.array3d(surface)
-    alpha = pygame.surfarray.array_alpha(surface)
-    blurred = np.zeros_like(array)
-    blurred_alpha = np.zeros_like(alpha)
-    height, width = array.shape[1], array.shape[0]
-    for y in range(height):
-        for x in range(width):
-            r_sum, g_sum, b_sum, a_sum, count = 0, 0, 0, 0, 0
-            for dy in range(-radius, radius + 1):
-                for dx in range(-radius, radius + 1):
-                    ny, nx = y + dy, x + dx
-                    if 0 <= ny < height and 0 <= nx < width:
-                        r_sum += array[nx, ny, 0]
-                        g_sum += array[nx, ny, 1]
-                        b_sum += array[nx, ny, 2]
-                        a_sum += alpha[nx, ny]
-                        count += 1
-            blurred[x, y] = [r_sum // count, g_sum // count, b_sum // count]
-            blurred_alpha[x, y] = a_sum // count
-    blurred_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-    pygame.surfarray.blit_array(blurred_surface, blurred)
-    blurred_surface_array = pygame.surfarray.array_alpha(blurred_surface)
-    blurred_surface_array[:] = blurred_alpha
-    pygame.surfarray.blit_array(blurred_surface, blurred)
-    return blurred_surface
 
 # --- Pixel Art Sprites ---
 PLAYER_PIXEL_MAP_BASE = [
@@ -242,68 +200,17 @@ class Nebula(pygame.sprite.Sprite):
         super().__init__()
         self.size = size
         self.image = pygame.Surface((size, size), pygame.SRCALPHA)
-        noise_scale = 0.05
-        noise_map = generate_noise_map(size // PIXEL_SCALE, size // PIXEL_SCALE, scale=noise_scale, seed=random.randint(0, 1000))
-        for y in range(0, size, PIXEL_SCALE):
-            for x in range(0, size, PIXEL_SCALE):
-                nx = x // PIXEL_SCALE
-                ny = y // PIXEL_SCALE
-                if nx < noise_map.shape[1] and ny < noise_map.shape[0]:
-                    value = noise_map[ny, nx]
-                    if value > 0.4:
-                        intensity = (value - 0.4) / 0.6
-                        if intensity > 0.7:
-                            color = COR_NEBULA_1
-                        elif intensity > 0.5:
-                            color = COR_NEBULA_2
-                        else:
-                            color = COR_NEBULA_3
-                        pygame.draw.rect(self.image, color, (x, y, PIXEL_SCALE, PIXEL_SCALE))
-        self.image = blur_surface(self.image, radius=1)
+        self.image.fill((0, 0, 0, 0))
+        colors = [COR_NEBULA_1, COR_NEBULA_2, COR_NEBULA_3]
+        num_circles = random.randint(20, 40)
+        for _ in range(num_circles):
+            radius = random.randint(size // 10, size // 4)
+            cx = random.randint(radius, size - radius)
+            cy = random.randint(radius, size - radius)
+            color = random.choice(colors)
+            pygame.draw.circle(self.image, color, (cx, cy), radius)
         self.rect = self.image.get_rect(center=(x, y))
         self.vel_y = 0.02
-
-    def update(self):
-        self.rect.y += self.vel_y
-        if self.rect.top > ALTURA_TELA:
-            self.rect.bottom = -self.size
-            self.rect.centerx = random.randint(self.size // 2, LARGURA_TELA - self.size // 2)
-
-class Galaxy(pygame.sprite.Sprite):
-    def __init__(self, x, y, size):
-        super().__init__()
-        self.size = size
-        self.image = pygame.Surface((size, size), pygame.SRCALPHA)
-        self.image.fill((0, 0, 0, 0))
-        center_x, center_y = size // 2, size // 2
-        core_radius = size // 8
-        colors = [COR_GALAXY_1, COR_GALAXY_2, COR_GALAXY_3]
-        is_spiral = random.random() < 0.7
-        if is_spiral:
-            num_arms = random.randint(2, 4)
-            for _ in range(100):
-                angle = random.uniform(0, 2 * math.pi)
-                dist = random.uniform(0, size // 2)
-                arm_angle = (angle * num_arms) % (2 * math.pi)
-                spiral_dist = dist * 0.5 * math.sin(arm_angle)
-                px = center_x + int(dist * math.cos(angle + spiral_dist))
-                py = center_y + int(dist * math.sin(angle + spiral_dist))
-                if 0 <= px < size and 0 <= py < size:
-                    color = random.choice(colors)
-                    pygame.draw.rect(self.image, color, (px, py, PIXEL_SCALE, PIXEL_SCALE))
-        else:
-            for _ in range(50):
-                dist = random.gauss(0, size // 4)
-                angle = random.uniform(0, 2 * math.pi)
-                px = center_x + int(dist * math.cos(angle))
-                py = center_y + int(dist * math.sin(angle))
-                if 0 <= px < size and 0 <= py < size:
-                    color = random.choice(colors)
-                    pygame.draw.rect(self.image, color, (px, py, PIXEL_SCALE, PIXEL_SCALE))
-        pygame.draw.circle(self.image, COR_GALAXY_1, (center_x, center_y), core_radius)
-        self.image = blur_surface(self.image, radius=1)
-        self.rect = self.image.get_rect(center=(x, y))
-        self.vel_y = 0.01
 
     def update(self):
         self.rect.y += self.vel_y
@@ -372,15 +279,19 @@ class Planeta(pygame.sprite.Sprite):
         self.image.fill((0, 0, 0, 0))
         centro_x = self.image_largura // 2
         centro_y = self.image_altura // 2
+
+        # Desenhar anéis traseiros
         for y in range(centro_y - self.anel_altura // 2, centro_y):
             width = int(self.anel_largura * math.sqrt(1 - ((y - centro_y) / (self.anel_altura / 2)) ** 2))
             x_start = centro_x - width // 2
             if y < centro_y - self.anel_altura // 4:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_EXTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
             elif y < centro_y - self.anel_altura // 5:
-                pass
+                pass  # Cassini Division (gap)
             else:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_INTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
+
+        # Desenhar planeta com faixas de nuvens
         for y in range(centro_y - self.raio_planeta, centro_y + self.raio_planeta):
             width = int(2 * self.raio_planeta * math.sqrt(1 - ((y - centro_y) / self.raio_planeta) ** 2))
             x_start = centro_x - width // 2
@@ -391,20 +302,25 @@ class Planeta(pygame.sprite.Sprite):
             else:
                 color = COR_SATURNO_PLANETA
             pygame.draw.line(self.image, color, (x_start, y), (x_start + width, y), PIXEL_SCALE)
+
+        # Desenhar sombra dos anéis no planeta
         shadow_y_start = centro_y - self.raio_planeta // 2
         for y in range(shadow_y_start, shadow_y_start + self.raio_planeta // 4):
             width = int(2 * self.raio_planeta * math.sqrt(1 - ((y - centro_y) / self.raio_planeta) ** 2))
             x_start = centro_x - width // 2
             pygame.draw.line(self.image, COR_SATURNO_SOMBRA, (x_start, y), (x_start + width, y), PIXEL_SCALE // 2)
+
+        # Desenhar anéis frontais
         for y in range(centro_y, centro_y + self.anel_altura // 2):
             width = int(self.anel_largura * math.sqrt(1 - ((y - centro_y) / (self.anel_altura / 2)) ** 2))
             x_start = centro_x - width // 2
             if y > centro_y + self.anel_altura // 4:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_EXTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
             elif y > centro_y + self.anel_altura // 5:
-                pass
+                pass  # Cassini Division (gap)
             else:
                 pygame.draw.line(self.image, COR_SATURNO_ANEL_INTERNO, (x_start, y), (x_start + width, y), PIXEL_SCALE)
+
         self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.centery = y
@@ -700,7 +616,6 @@ class Game:
         self.grupo_elementos_distantes = pygame.sprite.Group()
         self.grupo_cometas = pygame.sprite.Group()
         self.grupo_nebulas = pygame.sprite.Group()
-        self.grupo_galaxies = pygame.sprite.Group()
         self.aliens = pygame.sprite.Group()
         self.projeteis_jogador = pygame.sprite.Group()
         self.projeteis_aliens = pygame.sprite.Group()
@@ -740,7 +655,6 @@ class Game:
         self.grupo_elementos_distantes.empty()
         self.grupo_cometas.empty()
         self.grupo_nebulas.empty()
-        self.grupo_galaxies.empty()
         num_estrelas_camada_0 = 80
         num_estrelas_camada_1 = 60
         num_estrelas_camada_2 = 40
@@ -755,12 +669,6 @@ class Game:
             y = random.randint(size // 2, ALTURA_TELA - size // 2)
             nebula = Nebula(x, y, size)
             self.grupo_nebulas.add(nebula)
-        for _ in range(3):
-            size = random.choice([50, 100, 150])
-            x = random.randint(size // 2, LARGURA_TELA - size // 2)
-            y = random.randint(size // 2, ALTURA_TELA - size // 2)
-            galaxy = Galaxy(x, y, size)
-            self.grupo_galaxies.add(galaxy)
 
     def gerenciar_cometas(self):
         if len(self.grupo_cometas) < self.max_cometas_na_tela and random.random() < self.chance_spawn_cometa:
@@ -789,7 +697,7 @@ class Game:
         self.criar_aliens()
         self.criar_barreiras()
         self.vel_x_alien = self.vel_x_alien_base + (self.nivel - 1) * 0.3
-        self.chance_tiro_alien = min(0.002 + (self.nivel - 1) * 0.0008, 0.01)
+        self.chance_tiro_alien = 0.002 + (self.nivel - 1) * 0.0008
         self.alien_move_timer_max = max(10, 50 - (self.nivel - 1) * 5)
 
     def criar_aliens(self):
@@ -856,7 +764,7 @@ class Game:
     def aliens_atiram(self):
         for alien in self.aliens:
             chance_base = self.chance_tiro_alien
-            modificador_quantidade = (1 + ((5*11) - len(self.aliens)) / (5*11.0)) * 2 if self.aliens else 1
+            modificador_quantidade = (1 + ((5*11) - len(self.aliens)) / (5*11.0)) * 2
             if random.random() < chance_base * modificador_quantidade:
                 projetil = Projetil(alien.rect.centerx, alien.rect.bottom, VERMELHO_ALIEN_PROJETIL, 6)
                 self.todos_sprites.add(projetil)
@@ -882,6 +790,7 @@ class Game:
                 self.mostrar_mensagem_temporaria(f"Nível {self.nivel}!", 1.5)
                 self.iniciar_nova_onda()
                 return
+
         if self.jogador:
             powerup_hits = pygame.sprite.spritecollide(self.jogador, self.powerups, True)
             for powerup in powerup_hits:
@@ -892,6 +801,7 @@ class Game:
                 elif powerup.tipo == 'shield':
                     self.jogador.shield_active = True
                     self.jogador.shield_start = pygame.time.get_ticks()
+
             if not self.jogador.shield_active and pygame.sprite.spritecollide(self.jogador, self.projeteis_aliens, True):
                 self.vidas -= 1
                 self.combo = 0
@@ -905,6 +815,7 @@ class Game:
                 else:
                     self.jogador.rect.centerx = LARGURA_TELA // 2
                     self.mostrar_mensagem_temporaria(f"Vidas restantes: {self.vidas}", 1)
+
         pygame.sprite.groupcollide(self.projeteis_jogador, self.barreiras, True, False, collided=lambda p,b: self.colisao_projetil_barreira(p,b))
         pygame.sprite.groupcollide(self.projeteis_aliens, self.barreiras, True, False, collided=lambda p,b: self.colisao_projetil_barreira(p,b))
         if pygame.sprite.groupcollide(self.aliens, self.barreiras, False, True):
@@ -979,18 +890,12 @@ class Game:
     def tela_de_inicio(self):
         temp_estrelas = pygame.sprite.Group()
         temp_nebulas = pygame.sprite.Group()
-        temp_galaxies = pygame.sprite.Group()
         for _ in range(60): temp_estrelas.add(Estrela(random.randint(0,2)))
         for _ in range(2):
             size = random.choice([200, 300])
             x = random.randint(size // 2, LARGURA_TELA - size // 2)
             y = random.randint(size // 2, ALTURA_TELA - size // 2)
             temp_nebulas.add(Nebula(x, y, size))
-        for _ in range(2):
-            size = random.choice([50, 100])
-            x = random.randint(size // 2, LARGURA_TELA - size // 2)
-            y = random.randint(size // 2, ALTURA_TELA - size // 2)
-            temp_galaxies.add(Galaxy(x, y, size))
         temp_planeta = Planeta(LARGURA_TELA * 0.7, ALTURA_TELA * 0.3)
         esperando_input = True
         while esperando_input and self.rodando:
@@ -1004,8 +909,6 @@ class Game:
             self.tela.blit(self.background, (0, 0))
             temp_nebulas.update()
             temp_nebulas.draw(self.tela)
-            temp_galaxies.update()
-            temp_galaxies.draw(self.tela)
             temp_planeta.update()
             self.tela.blit(temp_planeta.image, temp_planeta.rect)
             temp_estrelas.update()
@@ -1022,18 +925,12 @@ class Game:
     def tela_game_over(self):
         temp_estrelas = pygame.sprite.Group()
         temp_nebulas = pygame.sprite.Group()
-        temp_galaxies = pygame.sprite.Group()
         for _ in range(60): temp_estrelas.add(Estrela(random.randint(0,2)))
         for _ in range(2):
             size = random.choice([200, 300])
             x = random.randint(size // 2, LARGURA_TELA - size // 2)
             y = random.randint(size // 2, ALTURA_TELA - size // 2)
             temp_nebulas.add(Nebula(x, y, size))
-        for _ in range(2):
-            size = random.choice([50, 100])
-            x = random.randint(size // 2, LARGURA_TELA - size // 2)
-            y = random.randint(size // 2, ALTURA_TELA - size // 2)
-            temp_galaxies.add(Galaxy(x, y, size))
         temp_planeta = Planeta(LARGURA_TELA * 0.3, ALTURA_TELA * 0.6)
         esperando_input = True
         while esperando_input and self.rodando:
@@ -1047,8 +944,6 @@ class Game:
             self.tela.blit(self.background, (0, 0))
             temp_nebulas.update()
             temp_nebulas.draw(self.tela)
-            temp_galaxies.update()
-            temp_galaxies.draw(self.tela)
             temp_planeta.update()
             self.tela.blit(temp_planeta.image, temp_planeta.rect)
             temp_estrelas.update()
@@ -1076,7 +971,6 @@ class Game:
                 if not self.rodando: break
                 if self.jogador: self.jogador.update()
                 self.grupo_nebulas.update()
-                self.grupo_galaxies.update()
                 self.grupo_estrelas.update()
                 self.grupo_elementos_distantes.update()
                 self.gerenciar_cometas()
@@ -1094,7 +988,6 @@ class Game:
                     self.combo = 0
                 self.tela.blit(self.background, (0, 0))
                 self.grupo_nebulas.draw(self.tela)
-                self.grupo_galaxies.draw(self.tela)
                 self.grupo_elementos_distantes.draw(self.tela)
                 self.grupo_estrelas.draw(self.tela)
                 self.grupo_cometas.draw(self.tela)
