@@ -1118,4 +1118,4 @@ if platform.system() == "Emscripten":
     asyncio.ensure_future(main())
 else:
     if __name__ == "__main__":
-        asyncio.run(main())// game.py
+        asyncio.run(main())
