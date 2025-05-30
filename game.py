@@ -87,7 +87,7 @@ PLAYER_PIXEL_MAP_BASE = [
     "  1 1 1  "
 ]
 PLAYER_THRUSTER_MAPS = [
-    [["  111  "], THRUSTER_COR_1],
+    [["   Ascending triangle 111   "], THRUSTER_COR_1],
     [[" 11111 "], THRUSTER_COR_2],
     [["1111111"], THRUSTER_COR_1],
     [[" 11111 "], THRUSTER_COR_2],
@@ -721,17 +721,28 @@ class BarreiraSegmento(pygame.sprite.Sprite):
 class Explosao(pygame.sprite.Sprite):
     def __init__(self, center, tamanho='pequeno'):
         super().__init__()
+        # Escolher uma única cor para cada frame da explosão
         if tamanho == 'pequeno':
-            self.frames, self.anim_delay = criar_sprite_pixel_art(EXPLOSAO_PIXEL_MAPS[:2], COR_EXPLOSAO_1, anim_delay=0.05)
+            colors = COR_EXPLOSAO_1
             num_particles = 15
+            self.anim_delay = 0.05
         else:
-            self.frames, self.anim_delay = criar_sprite_pixel_art(EXPLOSAO_PIXEL_MAPS, COR_EXPLOSAO_2, anim_delay=0.06)
+            colors = COR_EXPLOSAO_2
             num_particles = 30
+            self.anim_delay = 0.06
+        self.frames = []
+        for i, p_map in enumerate(EXPLOSAO_PIXEL_MAPS):
+            # Usar uma cor diferente para cada frame, ciclando pela lista de cores
+            cor = colors[i % len(colors)]
+            frame, _ = criar_sprite_pixel_art([p_map], cor, anim_delay=self.anim_delay)
+            self.frames.append(frame[0])
         self.frame_atual = 0
         self.image = self.frames[self.frame_atual]
         self.rect = self.image.get_rect(center=center)
         self.ultimo_update = pygame.time.get_ticks()
-        self.particles = [Particle(center[0], center[1], COR_EXPLOSAO_1 if tamanho == 'pequeno' else COR_EXPLOSAO_2, 
+        # Escolher uma única cor para as partículas
+        particle_color = random.choice(colors)
+        self.particles = [Particle(center[0], center[1], particle_color, 
                                   random.uniform(2, 6), random.uniform(0, 2*math.pi), random.randint(15, 25), 
                                   size_range=(2, 4) if tamanho == 'grande' else (1, 3)) for _ in range(num_particles)]
 
@@ -818,6 +829,7 @@ class Game:
             y = random.randint(size // 2, ALTURA_TELA - size // 2)
             nebula = Nebula(x, y, size)
             self.grupo_nebulas.add(nebula)
+        self.grupo_nebulas.add(nebula)
 
     def gerenciar_cometas(self):
         if len(self.grupo_cometas) < self.max_cometas_na_tela and random.random() < self.chance_spawn_cometa:
@@ -1024,6 +1036,7 @@ class Game:
 
     def colisao_projetil_barreira(self, projetil, barreira_segmento):
         barreira_segmento.atingido()
+        # Usar uma única cor para a explosão da barreira
         expl = Explosao(projetil.rect.center, 'pequeno')
         expl.frames, expl.anim_delay = criar_sprite_pixel_art([["1"]], COR_BARREIRA, escala=PIXEL_SCALE, anim_delay=0.05)
         self.todos_sprites.add(expl)
