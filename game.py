@@ -763,17 +763,17 @@ class Explosao(pygame.sprite.Sprite):
 
 class Game:
     def __init__(self):
+    def __init__(self):
         pygame.init()
         self.tela = pygame.display.set_mode((LARGURA_TELA, ALTURA_TELA))
         pygame.display.set_caption("Space Invaders Criado por João Marcelo Detomini")
-        # Carregar fonte pixelada
-        font_path = os.path.join("C:\\Users\\joaoC\\game_py", "PressStart2P-Regular.ttf")
+        # Carregar fonte padrão do Pygame
         try:
-            self.fonte_hud = pygame.font.Font(font_path, 16)  # HUD (menor para legibilidade)
-            self.fonte_titulo = pygame.font.Font(font_path, 32)  # Títulos grandes
-            self.fonte_media = pygame.font.Font(font_path, 24)  # Mensagens intermediárias
-        except FileNotFoundError:
-            print(f"Erro: Fonte 'PressStart2P-Regular.ttf' não encontrada em {font_path}. Baixe a fonte e coloque-a no diretório do jogo.")
+            self.fonte_hud = pygame.font.SysFont('freesansbold', 16)
+            self.fonte_titulo = pygame.font.SysFont('freesansbold', 32)
+            self.fonte_media = pygame.font.SysFont('freesansbold', 24)
+        except Exception as e:
+            print(f"Erro ao carregar fonte: {e}")
             self.fonte_hud = pygame.font.Font(None, 30)
             self.fonte_titulo = pygame.font.Font(None, 74)
             self.fonte_media = pygame.font.Font(None, 50)
