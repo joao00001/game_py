@@ -615,7 +615,7 @@ class Alien(pygame.sprite.Sprite):
         self.frame_atual = 0
         self.image = self.frames[0]
         self.rect = self.image.get_rect()
-        self.rect.topleft = (x, y))
+        self.rect.topleft = (x, y)
         self.ultimo_update_anim = pygame.time.get_ticks()
         self.pontos = mapa_pixels_alien_data[3]
         self.is_swooping = random.random() < mapa_pixels_alien_data[4] * tipo
@@ -636,7 +636,7 @@ class Alien(pygame.sprite.Sprite):
             if self.cloak_timer > self.cloak_interval:
                 self.is_cloaked = not self.is_cloaked
                 self.cloak_timer = 0
-                self.image.set_alpha(100, if self.is_cloaked else 255)
+                self.image.set_alpha(100 if self.is_cloaked else 255)
             self.rect.x += vel_x_alien * 1.5
             self.rect.y += vel_y_alien
         elif self.is_swooping:
@@ -647,9 +647,9 @@ class Alien(pygame.sprite.Sprite):
             self.rect.x += vel_x_alien
             self.rect.y += vel_y_alien
         agora = pygame.time.get_ticks()
-        if agora_time - self.ultimo_update_anim > self.anim_delay * 1000:
+        if agora - self.ultimo_update_anim > self.anim_delay * 1000:
             self.ultimo_update_anim = agora
-            self.frame_atual = (self.frame_atual + 1) % len(self.frames))
+            self.frame_atual = (self.frame_atual + 1) % len(self.frames)
             self.image = self.frames[self.frame_atual]
             if self.tipo == 5 and self.is_cloaked:
                 self.image.set_alpha(100)
@@ -792,7 +792,6 @@ class Game:
         self.vidas = 3
         self.nivel = 1
         self.vel_x_alien_base = 2.0 * PIXEL_SCALE / 4
-        self.vel_x_alien = self.vel_x_alien_base
         self.vel_x_alien = self.vel_x_alien_base
         self.vel_y_alien_descida = 12 * PIXEL_SCALE / 4
         self.chance_tiro_alien = 0.002
