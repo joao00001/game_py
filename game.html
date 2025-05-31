@@ -1,50 +1,125 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Invaders</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Codeverse Game - Nova UI Mobile</title>
     <style>
-        body {
+        body, html {
             margin: 0;
             padding: 0;
+            background-color: #000;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            background-color: #0a0a19;
-            font-family: Arial, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'PressStart2P', sans-serif; /* Se a fonte estiver carregada */
+            color: white; /* Cor de texto padrão para a página */
+            overscroll-behavior: none; /* Previne refresh ao puxar */
         }
-        canvas {
-            border: 2px solid #ffffff;
+
+        @font-face {
+            font-family: 'PressStart2P';
+            src: url('PressStart2P-Regular.ttf') format('truetype');
         }
-        #loading {
-            color: white;
-            font-size: 24px;
+
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 800px; /* Ou a largura definida no seu JS */
+            max-height: 600px; /* Ou a altura definida no seu JS */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Para manter a proporção 4:3 (800x600) se a tela for muito larga ou alta */
+            aspect-ratio: 800 / 600;
+        }
+
+        canvas#gameCanvas {
+            border: 1px solid #1a1a1a;
+            width: 100%; /* Ocupa todo o #gameContainer */
+            height: 100%;/* Ocupa todo o #gameContainer */
+            display: block; /* Remove espaço extra abaixo do canvas */
+        }
+
+        /* Container geral para todos os controles de toque */
+        .touch-controls-wrapper {
             position: absolute;
-            text-align: center;
+            bottom: 20px; /* Distância da base */
+            width: 100%;
+            max-width: 800px; /* Alinha com a largura do jogo */
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0 20px; /* Espaçamento nas laterais */
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between; /* Separa os grupos de controle */
+            align-items: flex-end; /* Alinha os grupos na base */
+            pointer-events: none; /* Permite cliques no canvas através do wrapper */
         }
+
+        /* Estilo base para os grupos de controle (esquerda e direita) */
+        .control-group {
+            display: flex;
+            gap: 20px; /* Espaço entre botões no mesmo grupo */
+            pointer-events: all; /* Habilita eventos de toque/mouse para os botões */
+        }
+
+        /* Botões de controle individuais */
+        .touch-controls-wrapper button {
+            width: 70px;  /* Tamanho fixo */
+            height: 70px; /* Tamanho fixo */
+            font-size: 2em; /* Tamanho do ícone (emoji) */
+            background-color: rgba(50, 50, 70, 0.65); /* Fundo translúcido */
+            color: white;
+            border: 2px solid rgba(180, 180, 200, 0.5);
+            border-radius: 50%; /* Botões circulares */
+            touch-action: manipulation; /* Otimiza para toques */
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.1s ease, transform 0.1s ease; /* Transição suave */
+        }
+
+        /* Efeito ao pressionar o botão */
+        .touch-controls-wrapper button:active {
+            background-color: rgba(80, 80, 110, 0.85);
+            transform: scale(0.92); /* Leve encolhida */
+        }
+
+        /* Ajustes específicos se necessário */
+        #touchControlsLeft {
+            /* Pode adicionar margens específicas se justify-content não for suficiente */
+        }
+
+        #touchControlsRight {
+            /* Pode adicionar margens específicas */
+        }
+
     </style>
 </head>
 <body>
-    <div id="loading">Loading Space Invaders...</div>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.3/full/pyodide.js"></script>
-    <script>
-        async function main() {
-            let pyodide = await loadPyodide();
-            await pyodide.loadPackage("pygame");
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
 
-            // Carregar o código Python do jogo
-            let response = await fetch("game.py");
-            let pythonCode = await response.text();
+        <div class="touch-controls-wrapper">
+            <div id="touchControlsLeft" class="control-group">
+                <button id="btnLeft">◀️</button>
+                <button id="btnRight">▶️</button>
+            </div>
+            <div id="touchControlsRight" class="control-group">
+                <button id="btnShield">🛡️</button>
+                <button id="btnShoot">💥</button> </div>
+        </div>
+    </div>
 
-            // Esconder mensagem de loading após carregar o Pyodide
-            document.getElementById("loading").style.display = "none";
-
-            // Executar o código Python
-            await pyodide.runPythonAsync(pythonCode);
-        }
-        main();
-    </script>
+    <script src="game.js"></script>
 </body>
 </html>
