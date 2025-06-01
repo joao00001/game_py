@@ -1,8 +1,8 @@
-// --- Constantes Globais ---
-const LARGURA_TELA = 800;
-const ALTURA_TELA = 600;
+// --- Global Dynamic Scale (to be updated by Game constructor) ---
+let DYNAMIC_PIXEL_SCALE = 3; // Initial default, will be updated
+
+// --- Constantes Globais (Cores, etc. - Nenhuma alteração aqui exceto remoção de LARGURA_TELA, ALTURA_TELA, PIXEL_SCALE) ---
 const FPS = 60;
-const PIXEL_SCALE = 4;
 
 const FUNDO_ESPACO = "rgb(10, 10, 25)";
 const PRETO_HUD = "rgb(20, 20, 30)";
@@ -49,7 +49,7 @@ const COR_NEBULA_3 = "rgba(150, 100, 120, 0.20)";
 
 
 // --- Funções Auxiliares ---
-function desenharPixelArt(ctx, pixelMap, cor, posX, posY, escala = PIXEL_SCALE) {
+function desenharPixelArt(ctx, pixelMap, cor, posX, posY, escala = DYNAMIC_PIXEL_SCALE) {
     ctx.fillStyle = cor;
     for (let rIdx = 0; rIdx < pixelMap.length; rIdx++) {
         const row = pixelMap[rIdx];
@@ -61,7 +61,7 @@ function desenharPixelArt(ctx, pixelMap, cor, posX, posY, escala = PIXEL_SCALE) 
     }
 }
 
-function criarSpritePixelArt(pixelMaps, cor, escala = PIXEL_SCALE, animDelay = 0.5) {
+function criarSpritePixelArt(pixelMaps, cor, escala = DYNAMIC_PIXEL_SCALE, animDelay = 0.5) {
     const frames = [];
     if (!Array.isArray(pixelMaps) || !Array.isArray(pixelMaps[0])) {
         pixelMaps = [pixelMaps];
@@ -73,7 +73,7 @@ function criarSpritePixelArt(pixelMaps, cor, escala = PIXEL_SCALE, animDelay = 0
         frameCanvas.width = mapLargura;
         frameCanvas.height = mapAltura;
         const frameCtx = frameCanvas.getContext('2d');
-        desenharPixelArt(frameCtx, pMap, cor, 0, 0, escala);
+        desenharPixelArt(frameCtx, pMap, cor, 0, 0, escala); // usa a 'escala' passada para criarSpritePixelArt
         frames.push(frameCanvas);
     }
     return { frames, animDelay };
@@ -117,10 +117,10 @@ class Particle {
         this.posY = y;
         this.cor = Array.isArray(cor) ? cor[Math.floor(Math.random() * cor.length)] : cor;
         this.speed = speed;
-        this.angle = angle; 
+        this.angle = angle;
         this.lifespan = lifespan;
         this.currentLife = lifespan;
-        this.size = (Math.floor(Math.random() * (sizeRange[1] - sizeRange[0] + 1)) + sizeRange[0]) * PIXEL_SCALE;
+        this.size = (Math.floor(Math.random() * (sizeRange[1] - sizeRange[0] + 1)) + sizeRange[0]) * DYNAMIC_PIXEL_SCALE;
     }
 
     update() {
@@ -134,9 +134,9 @@ class Particle {
         const alpha = Math.max(0, this.currentLife / this.lifespan);
         let baseCor = this.cor;
         if (baseCor.startsWith("rgb(")) {
-            baseCor = baseCor.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
-        } else if (baseCor.startsWith("rgba(")) { 
-             baseCor = baseCor.replace(/,[^,]+?\)$/, `, ${alpha})`);
+            baseCor = baseCor.replace("rgb(", "rgba(").replace(")", `, ${alpha.toFixed(2)})`);
+        } else if (baseCor.startsWith("rgba(")) {
+             baseCor = baseCor.replace(/,[^,]+?\)$/, `, ${alpha.toFixed(2)})`);
         }
         ctx.fillStyle = baseCor;
         ctx.fillRect(
@@ -147,14 +147,15 @@ class Particle {
     }
 }
 
-class Nebula {
-    constructor(x, y, size) {
+class Nebula { // Needs ALTURA_TELA, LARGURA_TELA from game instance if it were to be truly dynamic during resize
+    constructor(x, y, size, gameInstance) { // Pass gameInstance for dimensions
+        this.game = gameInstance;
         this.size = size;
         this.image = document.createElement('canvas');
         this.image.width = size;
         this.image.height = size;
         const ctx = this.image.getContext('2d');
-        
+
         const colors = [COR_NEBULA_1, COR_NEBULA_2, COR_NEBULA_3];
         const numCircles = Math.floor(Math.random() * 21) + 20;
         for (let i = 0; i < numCircles; i++) {
@@ -167,15 +168,15 @@ class Nebula {
             ctx.fill();
         }
         this.rect = { x: x - size / 2, y: y - size / 2, width: size, height: size, centerx: x, centery: y };
-        this.velY = 0.02; 
+        this.velY = 0.02;
     }
 
     update() {
         this.rect.y += this.velY;
         this.rect.centery += this.velY;
-        if (this.rect.y > ALTURA_TELA) {
+        if (this.rect.y > this.game.ALTURA_TELA) { // Use game.ALTURA_TELA
             this.rect.y = -this.size - this.rect.height;
-            this.rect.x = Math.floor(Math.random() * (LARGURA_TELA - this.size)) + this.size / 2 - this.rect.width/2;
+            this.rect.x = Math.floor(Math.random() * (this.game.LARGURA_TELA - this.size)) + this.size / 2 - this.rect.width/2; // Use game.LARGURA_TELA
             this.rect.centerx = this.rect.x + this.rect.width/2;
             this.rect.centery = this.rect.y + this.rect.height/2;
         }
@@ -186,7 +187,8 @@ class Nebula {
 }
 
 class Estrela {
-    constructor(camada) {
+    constructor(camada, gameInstance) { // Pass gameInstance for dimensions
+        this.game = gameInstance;
         this.camada = camada;
         if (this.camada === 0) {
             this.tamanhoPixel = 1;
@@ -205,25 +207,25 @@ class Estrela {
             this.chancePulsar = 0.01;
         }
         this.corAtual = this.corBase;
-        this.width = this.tamanhoPixel * PIXEL_SCALE;
-        this.height = this.tamanhoPixel * PIXEL_SCALE;
-        this.x = Math.floor(Math.random() * LARGURA_TELA);
-        this.y = Math.floor(Math.random() * ALTURA_TELA);
+        this.width = this.tamanhoPixel * DYNAMIC_PIXEL_SCALE;
+        this.height = this.tamanhoPixel * DYNAMIC_PIXEL_SCALE;
+        this.x = Math.floor(Math.random() * this.game.LARGURA_TELA); // Use game.LARGURA_TELA
+        this.y = Math.floor(Math.random() * this.game.ALTURA_TELA); // Use game.ALTURA_TELA
         this.pulsando = false;
-        this.duracaoPulsar = Math.floor(Math.random() * 5) + 3; 
+        this.duracaoPulsar = Math.floor(Math.random() * 5) + 3;
         this.timerPulsar = 0;
         this.alpha = 1.0;
     }
 
     update() {
         this.y += this.velocidade;
-        if (this.y > ALTURA_TELA) {
-            this.x = Math.floor(Math.random() * LARGURA_TELA);
-            this.y = Math.floor(Math.random() * (-20 * PIXEL_SCALE + 5 * PIXEL_SCALE + 1)) - 5 * PIXEL_SCALE;
+        if (this.y > this.game.ALTURA_TELA) { // Use game.ALTURA_TELA
+            this.x = Math.floor(Math.random() * this.game.LARGURA_TELA); // Use game.LARGURA_TELA
+            this.y = Math.floor(Math.random() * (-20 * DYNAMIC_PIXEL_SCALE + 5 * DYNAMIC_PIXEL_SCALE + 1)) - 5 * DYNAMIC_PIXEL_SCALE;
             if (this.camada === 1) this.tamanhoPixel = Math.random() < 0.5 ? 1 : 2;
             else if (this.camada === 2) this.tamanhoPixel = Math.random() < 0.5 ? 2 : 3;
-            this.width = this.tamanhoPixel * PIXEL_SCALE;
-            this.height = this.tamanhoPixel * PIXEL_SCALE;
+            this.width = this.tamanhoPixel * DYNAMIC_PIXEL_SCALE;
+            this.height = this.tamanhoPixel * DYNAMIC_PIXEL_SCALE;
         }
 
         if (this.pulsando) {
@@ -232,7 +234,7 @@ class Estrela {
                 this.pulsando = false;
                 this.alpha = 1.0;
             } else {
-                this.alpha = [0.31, 0.47, 0.7, 1.0][Math.floor(Math.random() * 4)]; 
+                this.alpha = [0.31, 0.47, 0.7, 1.0][Math.floor(Math.random() * 4)];
             }
         } else if (Math.random() < this.chancePulsar) {
             this.pulsando = true;
@@ -250,11 +252,12 @@ class Estrela {
 }
 
 class Planeta {
-    constructor(x, y) {
-        this.raioPlaneta = 20 * PIXEL_SCALE;
-        this.anelLargura = 50 * PIXEL_SCALE;
-        this.anelAltura = 10 * PIXEL_SCALE;
-        this.imageLargura = this.anelLargura + 4 * PIXEL_SCALE;
+    constructor(x, y, gameInstance) { // Pass gameInstance for dimensions
+        this.game = gameInstance;
+        this.raioPlaneta = 20 * DYNAMIC_PIXEL_SCALE;
+        this.anelLargura = 50 * DYNAMIC_PIXEL_SCALE;
+        this.anelAltura = 10 * DYNAMIC_PIXEL_SCALE;
+        this.imageLargura = this.anelLargura + 4 * DYNAMIC_PIXEL_SCALE;
         this.imageAltura = this.raioPlaneta * 2 + this.anelAltura;
 
         this.image = document.createElement('canvas');
@@ -265,24 +268,24 @@ class Planeta {
         const centroX = this.imageLargura / 2;
         const centroY = this.imageAltura / 2;
 
-        for (let yOffset = centroY - this.anelAltura / 2; yOffset < centroY; yOffset += PIXEL_SCALE/2) {
+        for (let yOffset = centroY - this.anelAltura / 2; yOffset < centroY; yOffset += DYNAMIC_PIXEL_SCALE/2) {
             const normalizedY = (yOffset - centroY) / (this.anelAltura / 2);
             if (Math.abs(normalizedY) > 1) continue;
             const width = this.anelLargura * Math.sqrt(1 - normalizedY * normalizedY);
             const xStart = centroX - width / 2;
             let color;
             if (yOffset < centroY - this.anelAltura / 4) color = COR_SATURNO_ANEL_EXTERNO;
-            else if (yOffset < centroY - this.anelAltura / 5) continue; 
+            else if (yOffset < centroY - this.anelAltura / 5) continue;
             else color = COR_SATURNO_ANEL_INTERNO;
             pCtx.strokeStyle = color;
-            pCtx.lineWidth = PIXEL_SCALE;
+            pCtx.lineWidth = DYNAMIC_PIXEL_SCALE;
             pCtx.beginPath();
             pCtx.moveTo(xStart, yOffset);
             pCtx.lineTo(xStart + width, yOffset);
             pCtx.stroke();
         }
 
-        for (let yOffset = centroY - this.raioPlaneta; yOffset < centroY + this.raioPlaneta; yOffset+=PIXEL_SCALE/2) {
+        for (let yOffset = centroY - this.raioPlaneta; yOffset < centroY + this.raioPlaneta; yOffset+=DYNAMIC_PIXEL_SCALE/2) {
             const normalizedY = (yOffset - centroY) / this.raioPlaneta;
             if (Math.abs(normalizedY) > 1) continue;
             const width = 2 * this.raioPlaneta * Math.sqrt(1 - normalizedY * normalizedY);
@@ -292,7 +295,7 @@ class Planeta {
             else if (Math.abs(yOffset - centroY) < 2 * this.raioPlaneta / 3) color = COR_SATURNO_FAIXA_2;
             else color = COR_SATURNO_PLANETA;
             pCtx.strokeStyle = color;
-            pCtx.lineWidth = PIXEL_SCALE;
+            pCtx.lineWidth = DYNAMIC_PIXEL_SCALE;
             pCtx.beginPath();
             pCtx.moveTo(xStart, yOffset);
             pCtx.lineTo(xStart + width, yOffset);
@@ -300,30 +303,30 @@ class Planeta {
         }
 
         const shadowYStart = centroY - this.raioPlaneta / 2;
-        for (let yOffset = shadowYStart; yOffset < shadowYStart + this.raioPlaneta / 4; yOffset+=PIXEL_SCALE/4) {
+        for (let yOffset = shadowYStart; yOffset < shadowYStart + this.raioPlaneta / 4; yOffset+=DYNAMIC_PIXEL_SCALE/4) {
             const normalizedY = (yOffset - centroY) / this.raioPlaneta;
             if (Math.abs(normalizedY) > 1) continue;
             const width = 2 * this.raioPlaneta * Math.sqrt(1 - normalizedY * normalizedY);
             const xStart = centroX - width / 2;
             pCtx.strokeStyle = COR_SATURNO_SOMBRA;
-            pCtx.lineWidth = PIXEL_SCALE / 2;
+            pCtx.lineWidth = DYNAMIC_PIXEL_SCALE / 2;
             pCtx.beginPath();
             pCtx.moveTo(xStart, yOffset);
             pCtx.lineTo(xStart + width, yOffset);
             pCtx.stroke();
         }
-        
-        for (let yOffset = centroY; yOffset < centroY + this.anelAltura / 2; yOffset+=PIXEL_SCALE/2) {
+
+        for (let yOffset = centroY; yOffset < centroY + this.anelAltura / 2; yOffset+=DYNAMIC_PIXEL_SCALE/2) {
             const normalizedY = (yOffset - centroY) / (this.anelAltura / 2);
              if (Math.abs(normalizedY) > 1) continue;
             const width = this.anelLargura * Math.sqrt(1 - normalizedY * normalizedY);
             const xStart = centroX - width / 2;
             let color;
             if (yOffset > centroY + this.anelAltura / 4) color = COR_SATURNO_ANEL_EXTERNO;
-            else if (yOffset > centroY + this.anelAltura / 5) continue; 
+            else if (yOffset > centroY + this.anelAltura / 5) continue;
             else color = COR_SATURNO_ANEL_INTERNO;
             pCtx.strokeStyle = color;
-            pCtx.lineWidth = PIXEL_SCALE;
+            pCtx.lineWidth = DYNAMIC_PIXEL_SCALE;
             pCtx.beginPath();
             pCtx.moveTo(xStart, yOffset);
             pCtx.lineTo(xStart + width, yOffset);
@@ -331,14 +334,14 @@ class Planeta {
         }
 
         this.rect = { x: x - this.imageLargura / 2, y: y - this.imageAltura / 2, width: this.imageLargura, height: this.imageAltura };
-        this.velocidadeY = 0.05; 
+        this.velocidadeY = 0.05;
     }
 
     update() {
         this.rect.y += this.velocidadeY;
-        if (this.rect.y > ALTURA_TELA) {
+        if (this.rect.y > this.game.ALTURA_TELA) { // Use game.ALTURA_TELA
             this.rect.y = -this.imageAltura;
-            this.rect.x = Math.floor(Math.random() * (LARGURA_TELA - this.imageLargura));
+            this.rect.x = Math.floor(Math.random() * (this.game.LARGURA_TELA - this.imageLargura)); // Use game.LARGURA_TELA
         }
     }
     draw(ctx) {
@@ -348,33 +351,34 @@ class Planeta {
 
 
 class Cometa {
-    constructor() {
-        this.comprimentoCauda = (Math.floor(Math.random() * 13) + 12) * PIXEL_SCALE; 
+    constructor(gameInstance) { // Pass gameInstance for dimensions
+        this.game = gameInstance;
+        this.comprimentoCauda = (Math.floor(Math.random() * 13) + 12) * DYNAMIC_PIXEL_SCALE;
         this.imageDim = Math.floor(this.comprimentoCauda * 1.5);
-        
+
         this.image = document.createElement('canvas');
         this.image.width = this.imageDim;
         this.image.height = this.imageDim;
         this.ctx = this.image.getContext('2d');
 
         this.angle = Math.random() * (Math.PI * 340/180 - Math.PI * 200/180) + Math.PI * 200/180;
-        this.speed = (Math.random() * 2.0 + 2.0) * PIXEL_SCALE / 4;
+        this.speed = (Math.random() * 2.0 + 2.0) * DYNAMIC_PIXEL_SCALE / 4;
         this.wobble = Math.random() * 0.2 + 0.1;
-        
+
         const startSide = ["top", "left", "right"][Math.floor(Math.random()*3)];
         if (startSide === "top") {
-            this.posX = Math.random() * LARGURA_TELA;
+            this.posX = Math.random() * this.game.LARGURA_TELA; // Use game.LARGURA_TELA
             this.posY = -this.imageDim;
         } else if (startSide === "left") {
             this.posX = -this.imageDim;
-            this.posY = Math.floor(Math.random() * (ALTURA_TELA / 2));
+            this.posY = Math.floor(Math.random() * (this.game.ALTURA_TELA / 2)); // Use game.ALTURA_TELA
             this.angle = Math.random() * (Math.PI * 350/180 - Math.PI * 280/180) + Math.PI * 280/180;
-        } else { 
-            this.posX = LARGURA_TELA + this.imageDim;
-            this.posY = Math.floor(Math.random() * (ALTURA_TELA / 2));
+        } else {
+            this.posX = this.game.LARGURA_TELA + this.imageDim; // Use game.LARGURA_TELA
+            this.posY = Math.floor(Math.random() * (this.game.ALTURA_TELA / 2)); // Use game.ALTURA_TELA
             this.angle = Math.random() * (Math.PI * 260/180 - Math.PI * 190/180) + Math.PI * 190/180;
         }
-        
+
         this.rect = { x: Math.floor(this.posX), y: Math.floor(this.posY), width: this.imageDim, height: this.imageDim };
         this.velX = Math.cos(this.angle) * this.speed;
         this.velY = Math.sin(this.angle) * this.speed;
@@ -387,7 +391,7 @@ class Cometa {
         this.ctx.clearRect(0, 0, this.imageDim, this.imageDim);
         const cabecaXLocal = this.imageDim / 2;
         const cabecaYLocal = this.imageDim / 2;
-        const raioCabeca = 2 * PIXEL_SCALE;
+        const raioCabeca = 2 * DYNAMIC_PIXEL_SCALE;
 
         this.ctx.fillStyle = COR_COMETA_CABECA;
         this.ctx.beginPath();
@@ -399,16 +403,16 @@ class Cometa {
         this.ctx.arc(cabecaXLocal, cabecaYLocal, raioCabeca / 2, 0, Math.PI * 2);
         this.ctx.fill();
 
-        for (let i = 1; i < Math.floor(this.comprimentoCauda / PIXEL_SCALE); i++) {
-            const distDaCabeca = i * PIXEL_SCALE * 0.8;
-            const wobbleOffset = Math.sin(this.time + i * 0.5) * this.wobble * PIXEL_SCALE;
+        for (let i = 1; i < Math.floor(this.comprimentoCauda / DYNAMIC_PIXEL_SCALE); i++) {
+            const distDaCabeca = i * DYNAMIC_PIXEL_SCALE * 0.8;
+            const wobbleOffset = Math.sin(this.time + i * 0.5) * this.wobble * DYNAMIC_PIXEL_SCALE;
             const offsetX = -Math.cos(this.angle) * distDaCabeca + wobbleOffset;
             const offsetY = -Math.sin(this.angle) * distDaCabeca;
             const segmentoX = cabecaXLocal + Math.floor(offsetX);
             const segmentoY = cabecaYLocal + Math.floor(offsetY);
-            
-            const fatorDiminuicao = (1 - (i * PIXEL_SCALE / this.comprimentoCauda));
-            const tamanhoSegmento = Math.max(1 * PIXEL_SCALE, Math.floor((2 * PIXEL_SCALE) * fatorDiminuicao**2));
+
+            const fatorDiminuicao = (1 - (i * DYNAMIC_PIXEL_SCALE / this.comprimentoCauda));
+            const tamanhoSegmento = Math.max(1 * DYNAMIC_PIXEL_SCALE, Math.floor((2 * DYNAMIC_PIXEL_SCALE) * fatorDiminuicao**2));
             const corSegmento = fatorDiminuicao > 0.5 ? COR_COMETA_CAUDA_1 : COR_COMETA_CAUDA_2;
             const alpha = Math.floor(200 * fatorDiminuicao) / 255;
 
@@ -418,7 +422,7 @@ class Cometa {
             } else if (corComAlpha.startsWith("rgba(")) {
                  corComAlpha = corComAlpha.replace(/,[^,]+?\)$/, `, ${alpha.toFixed(2)})`);
             }
-            
+
             this.ctx.fillStyle = corComAlpha;
             this.ctx.beginPath();
             this.ctx.arc(segmentoX, segmentoY, tamanhoSegmento / 2, 0, Math.PI * 2);
@@ -435,9 +439,9 @@ class Cometa {
         this._desenharCometa();
 
         if (this.rect.x + this.rect.width < -this.imageDim ||
-            this.rect.x > LARGURA_TELA + this.imageDim ||
+            this.rect.x > this.game.LARGURA_TELA + this.imageDim || // Use game.LARGURA_TELA
             this.rect.y + this.rect.height < -this.imageDim ||
-            this.rect.y > ALTURA_TELA + this.imageDim) {
+            this.rect.y > this.game.ALTURA_TELA + this.imageDim) { // Use game.ALTURA_TELA
             this.alive = false;
         }
     }
@@ -447,20 +451,22 @@ class Cometa {
 }
 
 class PowerUp {
-    constructor(x, y, tipo) {
+    constructor(x, y, tipo, gameInstance) { // Pass gameInstance for dimensions
+        this.game = gameInstance;
         this.tipo = tipo;
         const corMap = {
             'vida': COR_POWERUP_VIDA, 'shoot': COR_POWERUP_SHOOT, 'shield': COR_POWERUP_SHIELD,
             'multi': COR_POWERUP_MULTI, 'speed': COR_POWERUP_SPEED, 'homing': COR_POWERUP_HOMING
         };
         this.cor = corMap[tipo];
-        const spriteData = criarSpritePixelArt(POWERUP_PIXEL_MAP, this.cor, PIXEL_SCALE);
+        // criarSpritePixelArt uses DYNAMIC_PIXEL_SCALE by default
+        const spriteData = criarSpritePixelArt(POWERUP_PIXEL_MAP, this.cor); 
         this.baseFrame = spriteData.frames[0];
-        this.image = this.baseFrame; 
-        this.rect = { 
-            x: x - this.image.width / 2, y: y - this.image.height / 2, 
-            width: this.image.width, height: this.image.height, 
-            centerx: x, centery: y 
+        this.image = this.baseFrame;
+        this.rect = {
+            x: x - this.image.width / 2, y: y - this.image.height / 2,
+            width: this.image.width, height: this.image.height,
+            centerx: x, centery: y
         };
         this.velY = 2;
         this.pulseTimer = 0;
@@ -470,7 +476,7 @@ class PowerUp {
         this.glowHeight = this.rect.height + 10;
         let glowCor = this.cor;
         if (glowCor.startsWith("rgb(")) {
-            glowCor = glowCor.replace("rgb(", "rgba(").replace(")", ", 0.39)"); 
+            glowCor = glowCor.replace("rgb(", "rgba(").replace(")", ", 0.39)");
         } else if (glowCor.startsWith("rgba(")) {
              glowCor = glowCor.replace(/,[^,]+?\)$/, ", 0.39)");
         }
@@ -480,7 +486,7 @@ class PowerUp {
     update() {
         this.rect.y += this.velY;
         this.rect.centery += this.velY;
-        
+
         this.pulseTimer += 0.05;
         const scale = 1 + 0.1 * Math.sin(this.pulseTimer);
         const newWidth = Math.floor(this.baseFrame.width * scale);
@@ -494,12 +500,12 @@ class PowerUp {
         const ctx = this.image.getContext('2d');
         ctx.clearRect(0,0,newWidth, newHeight);
         ctx.drawImage(this.baseFrame, 0, 0, newWidth, newHeight);
-        
+
         this.rect.x = this.rect.centerx - newWidth / 2;
         this.rect.width = newWidth;
         this.rect.height = newHeight;
 
-        if (this.rect.y > ALTURA_TELA) {
+        if (this.rect.y > this.game.ALTURA_TELA) { // Use game.ALTURA_TELA
             this.alive = false;
         }
     }
@@ -511,18 +517,20 @@ class PowerUp {
 
 
 class Player {
-    constructor(game) { 
-        this.game = game; 
+    constructor(game) {
+        this.game = game;
+        // criarSpritePixelArt uses DYNAMIC_PIXEL_SCALE by default
         const baseSpriteData = criarSpritePixelArt(PLAYER_PIXEL_MAP_BASE, VERDE_JOGADOR);
         this.baseImage = baseSpriteData.frames[0];
-        
+
         this.thrusterAnimFrames = [];
         PLAYER_THRUSTER_MAPS.forEach(item => {
+            // criarSpritePixelArt uses DYNAMIC_PIXEL_SCALE by default
             const framesData = criarSpritePixelArt(item.map, item.cor);
             this.thrusterAnimFrames.push(framesData.frames[0]);
         });
         this.thrusterFrameAtual = 0;
-        this.thrusterAnimDelay = 0.06 * 1000; 
+        this.thrusterAnimDelay = 0.06 * 1000;
         this.thrusterUltimoUpdate = performance.now();
 
         this.alturaBase = this.baseImage.height;
@@ -530,28 +538,28 @@ class Player {
         this.larguraTotal = this.baseImage.width;
         this.alturaTotal = this.alturaBase + this.alturaThrusterMax;
 
-        this.image = document.createElement('canvas'); 
+        this.image = document.createElement('canvas');
         this.image.width = this.larguraTotal;
-        this.image.height = this.alturaTotal + PIXEL_SCALE; 
+        this.image.height = this.alturaTotal + this.game.PIXEL_SCALE; // Use game.PIXEL_SCALE
         this.ctx = this.image.getContext('2d');
 
         this.rect = {
             width: this.larguraTotal, height: this.alturaTotal,
-            x: LARGURA_TELA / 2 - this.larguraTotal / 2,
-            y: ALTURA_TELA - 20 - this.alturaTotal - 60, 
+            x: this.game.LARGURA_TELA / 2 - this.larguraTotal / 2,
+            y: this.game.ALTURA_TELA - 40 - this.alturaTotal - 60,
         };
         this.rect.centerx = this.rect.x + this.rect.width/2;
         this.rect.bottom = this.rect.y + this.rect.height;
 
-        this.velocidadeBase = 8;
-        this.cooldownTiroBase = 300; 
+        this.velocidadeBase = 8; // Consider scaling this with screen size if movement feels off
+        this.cooldownTiroBase = 300;
         this.cooldownTiro = this.cooldownTiroBase;
         this.ultimoTiro = 0;
 
         this.shieldActive = false;
-        this.shieldDuration = 5000; 
+        this.shieldDuration = 5000;
         this.shieldStart = 0;
-        this.shieldCooldown = 15000; 
+        this.shieldCooldown = 15000;
         this.shieldLastUsed = -this.shieldCooldown;
 
         this.multiShotActive = false;
@@ -565,22 +573,18 @@ class Player {
         this.homingActive = false;
         this.homingDuration = 10000;
         this.homingStart = 0;
-        
-        this.particles = []; 
+
+        this.particles = [];
         this.combo = 0;
 
         this.isHit = false;
-        this.hitFlashDuration = 300; 
-        this.hitTimer = 0; 
-        this.invulnerabilityDuration = 1500; 
-        this.invulnerableUntil = 0; 
+        this.hitFlashDuration = 300;
+        this.hitTimer = 0;
+        this.invulnerabilityDuration = 1500;
+        this.invulnerableUntil = 0;
 
         this._atualizarImagemComposta();
     }
-
-    // Dentro da classe Player
-
-    // Dentro da classe Player
 
     _atualizarImagemComposta() {
         this.ctx.clearRect(0, 0, this.image.width, this.image.height);
@@ -594,75 +598,56 @@ class Player {
             this.ctx.drawImage(thrusterImgAtual, posThrusterX, posThrusterY);
         }
 
-        // ---> INÍCIO DO TRECHO DO ESCUDO VISUAL REFINADO <---
         if (this.shieldActive) {
-            this.ctx.fillStyle = COR_ESCUDO_DOURADO_OVO; // "rgba(255, 215, 0, 0.45)"
+            this.ctx.fillStyle = COR_ESCUDO_DOURADO_OVO;
             this.ctx.beginPath();
-            
+
             const centroXElipse = this.image.width / 2;
             const centroYElipse = this.image.height / 2;
-
-            // 1. Definir uma altura visual para o escudo, garantindo que seja maior que a nave.
-            //    Adiciona um padding vertical generoso.
-            let alturaVisualEscudo = this.alturaTotal + (15 * PIXEL_SCALE); // Ex: 15 pixels de padding em escala
-
-            // 2. Definir uma largura desejada para o escudo para que pareça um ovo (mais estreito que alto).
-            //    Por exemplo, 70% da altura visual.
+            let alturaVisualEscudo = this.alturaTotal + (15 * this.game.PIXEL_SCALE); // Use game.PIXEL_SCALE
             let larguraDesejadaOvo = alturaVisualEscudo * 0.70;
-
-            // 3. Calcular a largura mínima necessária para cobrir a nave horizontalmente.
-            //    Adiciona um padding horizontal mínimo.
-            let larguraMinimaCobertura = this.larguraTotal + (8 * PIXEL_SCALE); // Ex: 8 pixels de padding em escala
-
-            // 4. A largura final do escudo será o maior valor entre a largura desejada para o "ovo"
-            //    e a largura mínima para cobrir a nave. Isso garante cobertura.
+            let larguraMinimaCobertura = this.larguraTotal + (8 * this.game.PIXEL_SCALE); // Use game.PIXEL_SCALE
             let larguraFinalEscudo = Math.max(larguraDesejadaOvo, larguraMinimaCobertura);
-
-            // 5. Os raios da elipse são metade dessas dimensões finais.
             let raioHorizontal = larguraFinalEscudo / 2;
-            let raioVertical = alturaVisualEscudo / 2; // A altura é a prioritária para o formato "ovo"
+            let raioVertical = alturaVisualEscudo / 2;
 
             this.ctx.ellipse(
                 centroXElipse,
                 centroYElipse,
                 raioHorizontal,
                 raioVertical,
-                0,                            // rotação
-                0,                            // ângulo inicial
-                Math.PI * 2                   // ângulo final
+                0, 0, Math.PI * 2
             );
-            this.ctx.fill(); 
+            this.ctx.fill();
         }
-        // ---> FIM DO TRECHO DO ESCUDO VISUAL REFINADO <---
-        
-        this.particles.forEach(p => p.draw(this.ctx)); 
+        this.particles.forEach(p => p.draw(this.ctx)); // Particles are drawn relative to player's canvas
     }
 
-    update(keysPressed) { 
+    update(keysPressed) {
         const agora = performance.now();
         const velocidade = this.speedBoostActive ? this.velocidadeBase * 1.5 : this.velocidadeBase;
 
         if (keysPressed['ArrowLeft'] && this.rect.x > 0) {
             this.rect.x -= velocidade;
         }
-        if (keysPressed['ArrowRight'] && this.rect.x + this.rect.width < LARGURA_TELA) {
+        if (keysPressed['ArrowRight'] && this.rect.x + this.rect.width < this.game.LARGURA_TELA) { // Use game.LARGURA_TELA
             this.rect.x += velocidade;
         }
         this.rect.centerx = this.rect.x + this.rect.width/2;
         this.rect.bottom = this.rect.y + this.rect.height;
 
-        if (keysPressed['s'] && !this.shieldActive) { // 's' ou botão de escudo pressionado
+        if (keysPressed['s'] && !this.shieldActive) {
             if (agora - this.shieldLastUsed > this.shieldCooldown) {
                 this.shieldActive = true;
                 this.shieldStart = agora;
                 this.shieldLastUsed = agora;
-                this.game.playSound('shield_up'); 
+                this.game.playSound('shield_up');
             }
         }
-        
+
         if (this.shieldActive && agora - this.shieldStart > this.shieldDuration) {
             this.shieldActive = false;
-            this.game.playSound('shield_down'); 
+            this.game.playSound('shield_down');
         }
         if (this.multiShotActive && agora - this.multiShotStart > this.multiShotDuration) {
             this.multiShotActive = false;
@@ -684,43 +669,43 @@ class Player {
         }
 
         if (Math.random() < 0.1) {
-            const particleX = this.larguraTotal / 2; 
-            const particleY = this.alturaTotal;    
-            this.particles.push(new Particle(
-                particleX, particleY, THRUSTER_COR_1, 
-                Math.random() * 2 + 1, Math.random() * Math.PI + Math.PI/2, 
+            const particleX = this.larguraTotal / 2; // Relative to player image
+            const particleY = this.alturaTotal;  // Relative to player image
+            this.particles.push(new Particle( // Particle positions are relative to its own system, drawn on player canvas
+                particleX, particleY, THRUSTER_COR_1,
+                Math.random() * 2 + 1, Math.random() * Math.PI + Math.PI/2,
                 20));
         }
         this.particles = this.particles.filter(p => p.update());
 
-        this._atualizarImagemComposta(); 
+        this._atualizarImagemComposta();
     }
 
-    atirar(grupoProjetilJogador, aliens) { 
+    atirar(grupoProjetilJogador, aliens) {
         const agora = performance.now();
         if (agora - this.ultimoTiro > this.cooldownTiro) {
             this.ultimoTiro = agora;
             const posTiroY = this.rect.y + (this.alturaBase * 0.2);
             const posTiroX = this.rect.x + this.larguraTotal / 2;
-            this.game.playSound('player_shoot'); 
+            this.game.playSound('player_shoot');
 
             if (this.multiShotActive) {
-                const offsets = [-15, 0, 15];
+                const offsets = [-15, 0, 15]; // These offsets might need scaling if player ship scales a lot
                 offsets.forEach(offset => {
-                    const projetil = new Projetil(posTiroX + offset, posTiroY, AZUL_JOGADOR_PROJETIL, -12, this.homingActive, aliens);
+                    const projetil = new Projetil(posTiroX + offset, posTiroY, AZUL_JOGADOR_PROJETIL, -12, this.homingActive, aliens, this.game);
                     grupoProjetilJogador.push(projetil);
                 });
             } else {
-                const projetil = new Projetil(posTiroX, posTiroY, AZUL_JOGADOR_PROJETIL, -12, this.homingActive, aliens);
+                const projetil = new Projetil(posTiroX, posTiroY, AZUL_JOGADOR_PROJETIL, -12, this.homingActive, aliens, this.game);
                 grupoProjetilJogador.push(projetil);
             }
         }
     }
-    
+
     draw(mainCtx) {
         if (this.isHit) {
-            if (Math.floor(performance.now() / 80) % 2 === 0) { 
-                return; 
+            if (Math.floor(performance.now() / 80) % 2 === 0) {
+                return;
             }
         }
         mainCtx.drawImage(this.image, this.rect.x, this.rect.y);
@@ -732,16 +717,16 @@ class Player {
             this.isHit = true;
             this.hitTimer = agora;
             this.invulnerableUntil = agora + this.invulnerabilityDuration;
-            return true; 
+            return true;
         }
-        return false; 
+        return false;
     }
 }
 
 
 class Alien {
-    constructor(x, y, tipo, game) { 
-        this.game = game; 
+    constructor(x, y, tipo, game) {
+        this.game = game;
         this.tipo = tipo;
         let mapaPixelsData, corBase, animDelayBase, pontosBase, swoopChanceBase;
 
@@ -753,24 +738,25 @@ class Alien {
             case 5: [mapaPixelsData, corBase, animDelayBase, pontosBase, swoopChanceBase] = [ALIEN_STEALTH_PIXEL_MAPS, COR_ALIEN_STEALTH, 0.5, 15, 0.3]; break;
             default: throw new Error("Tipo de alien inválido");
         }
-        
+
         const cor = Array.isArray(corBase) ? corBase[Math.floor(Math.random() * corBase.length)] : corBase;
-        const spriteData = criarSpritePixelArt(mapaPixelsData, cor, PIXEL_SCALE, animDelayBase);
+        // criarSpritePixelArt uses DYNAMIC_PIXEL_SCALE by default
+        const spriteData = criarSpritePixelArt(mapaPixelsData, cor, undefined, animDelayBase);
         this.frames = spriteData.frames;
-        this.animDelay = spriteData.animDelay * 1000; 
+        this.animDelay = spriteData.animDelay * 1000; // animDelay from criarSpritePixelArt is already scaled by 1000 if it's provided in seconds
         this.frameAtual = 0;
-        this.image = this.frames[0]; 
+        this.image = this.frames[0];
         this.rect = { x, y, width: this.image.width, height: this.image.height };
         this.ultimoUpdateAnim = performance.now();
         this.pontos = pontosBase;
         this.isSwooping = Math.random() < swoopChanceBase * tipo;
         this.swoopAngle = 0;
-        this.swoopSpeed = this.isSwooping ? 2 : 0;
+        this.swoopSpeed = this.isSwooping ? 2 : 0; // Consider scaling this speed
         this.vida = (tipo === 4) ? 3 : 1;
         this.isCloaked = (tipo === 5);
         this.cloakTimer = 0;
-        this.cloakInterval = Math.floor(Math.random() * 101) + 100; 
-        this.alpha = 1.0; 
+        this.cloakInterval = Math.floor(Math.random() * 101) + 100;
+        this.alpha = 1.0;
         this.alive = true;
 
         if (this.isCloaked) this.alpha = 100/255;
@@ -778,10 +764,10 @@ class Alien {
 
     update(velXAlien, velYAlien) {
         const agora = performance.now();
-        if (this.tipo === 4) { 
-            this.rect.x += Math.sin(agora / 1000) * 2;
+        if (this.tipo === 4) { // Boss
+            this.rect.x += Math.sin(agora / 1000) * 2; // Consider scaling this horizontal movement
             this.rect.y += velYAlien * 0.5;
-        } else if (this.tipo === 5) { 
+        } else if (this.tipo === 5) { // Stealth
             this.cloakTimer++;
             if (this.cloakTimer > this.cloakInterval) {
                 this.isCloaked = !this.isCloaked;
@@ -812,7 +798,7 @@ class Alien {
         ctx.drawImage(this.image, this.rect.x, this.rect.y);
         ctx.restore();
     }
-    
+
     hit() {
         this.vida--;
         if (this.vida <= 0) {
@@ -822,21 +808,23 @@ class Alien {
 }
 
 class Projetil {
-    constructor(x, y, cor, velocidadeY, isHoming = false, aliens = null) {
-        const spriteData = criarSpritePixelArt(LASER_PIXEL_MAPS, cor, PIXEL_SCALE, 0.1);
+    constructor(x, y, cor, velocidadeY, isHoming = false, aliens = null, gameInstance) { // Pass gameInstance
+        this.game = gameInstance;
+        // criarSpritePixelArt uses DYNAMIC_PIXEL_SCALE by default
+        const spriteData = criarSpritePixelArt(LASER_PIXEL_MAPS, cor, undefined, 0.1);
         this.frames = spriteData.frames;
-        this.animDelay = spriteData.animDelay * 1000; 
+        this.animDelay = spriteData.animDelay * 1000;
         this.frameAtual = 0;
         this.image = this.frames[0];
-        this.rect = { 
-            x: x - this.image.width / 2, y: y - this.image.height / 2, 
+        this.rect = {
+            x: x - this.image.width / 2, y: y - this.image.height / 2,
             width: this.image.width, height: this.image.height,
             centerx: x, centery: y
         };
-        this.velocidadeY = velocidadeY;
+        this.velocidadeY = velocidadeY; // Consider scaling this speed
         this.ultimoUpdate = performance.now();
         this.isHoming = isHoming;
-        this.aliens = aliens; 
+        this.aliens = aliens; // This is the live list of aliens from the game
         this.target = null;
         this.particles = [];
         this.particleTimer = 0;
@@ -854,18 +842,18 @@ class Projetil {
         this.particleTimer++;
         if (this.particleTimer >= 5) {
             this.particleTimer = 0;
-            this.particles.push(new Particle(this.rect.centerx, this.rect.centery, AZUL_JOGADOR_PROJETIL, 
+            this.particles.push(new Particle(this.rect.centerx, this.rect.centery, AZUL_JOGADOR_PROJETIL,
                                              Math.random() + 1, Math.PI / 2, 10, [1,2]));
         }
         this.particles = this.particles.filter(p => p.update());
 
 
         if (this.isHoming && this.aliens && this.aliens.length > 0) {
-            if (!this.target || !this.target.alive) { 
+            if (!this.target || !this.target.alive) { // Ensure target is still valid
                 let closestAlien = null;
                 let minDistSq = Infinity;
                 this.aliens.forEach(alien => {
-                    if (!alien.alive) return; 
+                    if (!alien.alive) return; // Only target live aliens
                     const dx = (alien.rect.x + alien.rect.width/2) - this.rect.centerx;
                     const dy = (alien.rect.y + alien.rect.height/2) - this.rect.centery;
                     const distSq = dx * dx + dy * dy;
@@ -882,42 +870,42 @@ class Projetil {
                 const dx = targetCenterX - this.rect.centerx;
                 const dy = targetCenterY - this.rect.centery;
                 const dist = Math.hypot(dx, dy);
-                const homingSpeed = Math.abs(this.velocidadeY * 0.75); 
-                if (dist > 0) {
+                const homingSpeed = Math.abs(this.velocidadeY * 0.75); // Homing speed based on projectile's base speed
+                if (dist > 0) { // Move towards target
                     this.rect.x += (dx / dist) * homingSpeed;
                     this.rect.y += (dy / dist) * homingSpeed;
                 }
-            } else { 
+            } else { // No target found or target lost, continue straight
                  this.rect.y += this.velocidadeY;
             }
-        } else {
+        } else { // Not homing or no aliens to target
             this.rect.y += this.velocidadeY;
         }
-        
+
         this.rect.centerx = this.rect.x + this.rect.width/2;
         this.rect.centery = this.rect.y + this.rect.height/2;
 
-        if (this.rect.y + this.rect.height < 0 || this.rect.y > ALTURA_TELA) {
+        if (this.rect.y + this.rect.height < 0 || this.rect.y > this.game.ALTURA_TELA) { // Use game.ALTURA_TELA
             this.alive = false;
         }
     }
 
-    draw(ctx) { 
+    draw(ctx) {
         ctx.drawImage(this.image, this.rect.x, this.rect.y);
         this.particles.forEach(particle => particle.draw(ctx));
     }
 }
 
-
 class BarreiraSegmento {
     constructor(x, y) {
-        const spriteData = criarSpritePixelArt(BARREIRA_SEGMENTO_PIXEL_MAP, COR_BARREIRA, PIXEL_SCALE * 2);
-        this.frames = spriteData.frames; 
-        this.image = this.frames[0];
-        this.rect = { x, y, width: this.image.width, height: this.image.height };
-        this.vida = 4;
+        // Pass DYNAMIC_PIXEL_SCALE * 2 as the scale argument
+        const spriteData = criarSpritePixelArt(BARREIRA_SEGMENTO_PIXEL_MAP, COR_BARREIRA, DYNAMIC_PIXEL_SCALE * 2);
+        this.originalImage = spriteData.frames[0];
+        this.rect = { x, y, width: this.originalImage.width, height: this.originalImage.height };
+        this.maxVida = 4;
+        this.vida = this.maxVida;
         this.alive = true;
-        this.originalImage = this.image; 
+        this.alpha = 1.0;
     }
 
     atingido() {
@@ -925,25 +913,24 @@ class BarreiraSegmento {
         if (this.vida <= 0) {
             this.alive = false;
         } else {
-            const alpha = Math.max(50 / 255, this.vida / 4);
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = this.originalImage.width;
-            tempCanvas.height = this.originalImage.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.globalAlpha = alpha;
-            tempCtx.drawImage(this.originalImage, 0, 0);
-            this.image = tempCanvas;
+            this.alpha = Math.max(0.2, this.vida / this.maxVida);
         }
     }
+
     draw(ctx){
-        ctx.drawImage(this.image, this.rect.x, this.rect.y);
+        if (!this.alive) return;
+
+        const previousAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = this.alpha;
+        ctx.drawImage(this.originalImage, this.rect.x, this.rect.y);
+        ctx.globalAlpha = previousAlpha;
     }
 }
 
 class Explosao {
     constructor(center, tamanho = 'pequeno') {
         let colors, numParticles;
-        this.animDelay = (tamanho === 'pequeno' ? 0.05 : 0.06) * 1000; 
+        this.animDelay = (tamanho === 'pequeno' ? 0.05 : 0.06) * 1000;
 
         if (tamanho === 'pequeno') {
             colors = COR_EXPLOSAO_1;
@@ -956,29 +943,30 @@ class Explosao {
         this.frames = [];
         EXPLOSAO_PIXEL_MAPS.forEach((pMap, i) => {
             const color = colors[i % colors.length];
-            const frameData = criarSpritePixelArt([pMap], color, PIXEL_SCALE, this.animDelay / 1000);
+            // criarSpritePixelArt uses DYNAMIC_PIXEL_SCALE by default, animDelay needs to be in seconds for it
+            const frameData = criarSpritePixelArt([pMap], color, undefined, this.animDelay / 1000);
             this.frames.push(frameData.frames[0]);
         });
 
         this.frameAtual = 0;
         this.image = this.frames[0];
-        this.rect = { 
+        this.rect = {
             width: this.image.width, height: this.image.height,
-            x: center.x - this.image.width / 2, 
+            x: center.x - this.image.width / 2,
             y: center.y - this.image.height / 2
         };
         this.ultimoUpdate = performance.now();
         this.alive = true;
-        
+
         this.particles = [];
         const particleColor = colors[Math.floor(Math.random()*colors.length)];
         for (let i = 0; i < numParticles; i++) {
             this.particles.push(new Particle(
                 center.x, center.y, particleColor,
-                Math.random() * 4 + 2, 
-                Math.random() * Math.PI * 2, 
-                Math.floor(Math.random() * 11) + 15, 
-                tamanho === 'grande' ? [2, 4] : [1, 3]
+                Math.random() * 4 + 2, // speed
+                Math.random() * Math.PI * 2, // angle
+                Math.floor(Math.random() * 11) + 15, // lifespan
+                tamanho === 'grande' ? [2, 4] : [1, 3] // sizeRange
             ));
         }
     }
@@ -989,9 +977,9 @@ class Explosao {
             this.ultimoUpdate = agora;
             this.frameAtual++;
             if (this.frameAtual >= this.frames.length) {
-                this.alive = false; 
+                this.alive = false; // Animation finished
             } else {
-                const currentCenter = { 
+                const currentCenter = { // Preserve center point when frame size changes
                     x: this.rect.x + this.rect.width / 2,
                     y: this.rect.y + this.rect.height / 2
                 };
@@ -1003,13 +991,15 @@ class Explosao {
             }
         }
         this.particles = this.particles.filter(p => p.update());
+        // If animation is done AND all particles are gone, then it's truly done.
+        // However, the main game loop filters explosions based on `e.alive || e.particles.length > 0`
     }
 
     draw(ctx) {
-        if (this.alive) { 
+        if (this.alive) { // Draw main explosion animation frame
              ctx.drawImage(this.image, this.rect.x, this.rect.y);
         }
-        this.particles.forEach(particle => particle.draw(ctx));
+        this.particles.forEach(particle => particle.draw(ctx)); // Draw all particles
     }
 }
 
@@ -1018,62 +1008,78 @@ class Game {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-        this.canvas.width = LARGURA_TELA;
-        this.canvas.height = ALTURA_TELA;
 
-        this.fonteHud = "16px PressStart2P, sans-serif";
-        this.fonteTitulo = "32px PressStart2P, sans-serif";
-        this.fonteMedia = "24px PressStart2P, sans-serif";
+        // Dynamic screen dimensions
+        this.LARGURA_TELA = window.innerWidth;
+        this.ALTURA_TELA = window.innerHeight;
+
+        // Dynamic PIXEL_SCALE calculation
+        const ORIGINAL_ALTURA_TELA_FOR_SCALE_REFERENCE = 850; // Original fixed ALTURA_TELA
+        const ORIGINAL_PIXEL_SCALE_REFERENCE = 3;       // Original fixed PIXEL_SCALE
+        this.PIXEL_SCALE = Math.max(1, Math.round(this.ALTURA_TELA * (ORIGINAL_PIXEL_SCALE_REFERENCE / ORIGINAL_ALTURA_TELA_FOR_SCALE_REFERENCE)));
         
+        // Update the global DYNAMIC_PIXEL_SCALE for helper functions and classes without game instance
+        DYNAMIC_PIXEL_SCALE = this.PIXEL_SCALE;
+
+        this.canvas.width = this.LARGURA_TELA;
+        this.canvas.height = this.ALTURA_TELA;
+        
+        // Adjust font sizes based on new PIXEL_SCALE or screen height for readability
+        const baseFontSize = Math.max(8, Math.floor(this.PIXEL_SCALE * 5)); // Example dynamic font size
+        this.fonteHud = `${baseFontSize}px PressStart2P, sans-serif`;
+        this.fonteTitulo = `${Math.floor(baseFontSize * 2)}px PressStart2P, sans-serif`;
+        this.fonteMedia = `${Math.floor(baseFontSize * 1.5)}px PressStart2P, sans-serif`;
+
+
         this.rodando = true;
-        this.estadoJogo = "tela_inicio"; 
-        
+        this.estadoJogo = "tela_inicio";
+
         this.grupoEstrelas = [];
         this.grupoElementosDistantes = [];
         this.grupoCometas = [];
-        this.grupoNebulas = [];
+        this.grupoNebulas = []; // Initialize grupoNebulas
         this.aliens = [];
         this.projeteisJogador = [];
         this.projeteisAliens = [];
         this.barreiras = [];
         this.powerups = [];
-        this.explosoes = []; 
+        this.explosoes = [];
 
         this.jogador = null;
         this.pontuacao = 0;
         this.vidas = 3;
         this.nivel = 1;
-        
-        this.velXAlienBase = 2.0 * PIXEL_SCALE / 4;
+
+        this.velXAlienBase = 2.0 * (this.PIXEL_SCALE / 3); // Scale base speed slightly with PIXEL_SCALE
         this.velXAlien = this.velXAlienBase;
-        this.velYAlienDescida = 12 * PIXEL_SCALE / 4;
+        this.velYAlienDescida = 12 * (this.PIXEL_SCALE / 3); // Scale base speed slightly
         this.chanceTiroAlien = 0.002;
-        this.alienMoveTimerMax = 30; 
+        this.alienMoveTimerMax = 30;
         this.alienMoveTimer = 0;
         this.alienDirecaoDescidaPendente = false;
-        
+
         this.chanceSpawnCometa = 0.008;
         this.maxCometas = 3;
-        
+
         this.combo = 0;
-        this.comboTimer = 0; 
-        this.scoreFlash = 0; 
-        
+        this.comboTimer = 0;
+        this.scoreFlash = 0;
+
         this.shakeOffsetX = 0;
         this.shakeOffsetY = 0;
         this.shakeFrames = [];
 
         this.keysPressed = {};
-        this.setupKeyboardListeners();    // RENOMEADO
-        this.setupTouchButtonListeners(); // RENOMEADO e chamado aqui
-        this.setupCanvasEventListeners(); // NOVO: Listener para toques/cliques no canvas
+        this.setupKeyboardListeners();
+        this.setupTouchButtonListeners();
+        this.setupCanvasEventListeners();
 
 
         this.background = this._criarBackground();
-        this.criarCenario(); 
-        
-        this.mensagemTemporaria = null; 
-        this.highScores = this.getHighScores(); 
+        this.criarCenario(); // Call after PIXEL_SCALE and dimensions are set
+
+        this.mensagemTemporaria = null;
+        this.highScores = this.getHighScores();
 
         this.loopPrincipal = this.loopPrincipal.bind(this);
     }
@@ -1092,20 +1098,19 @@ class Game {
         }
     }
 
-    saveHighScore(score) { 
+    saveHighScore(score) {
+        let scores = this.getHighScores();
         try {
-            let scores = this.getHighScores();
-            scores.push({ name: "PLY", score: score, date: new Date().toLocaleDateString("pt-BR") }); 
+            scores.push({ name: "PLY", score: score, date: new Date().toLocaleDateString("pt-BR") });
             scores.sort((a, b) => b.score - a.score);
-            scores = scores.slice(0, 5); 
+            scores = scores.slice(0, 5);
             localStorage.setItem('codeverseHighScores_v2', JSON.stringify(scores));
-            this.highScores = scores; 
+            this.highScores = scores;
         } catch (e) {
-            console.error("Erro ao salvar high score:", e);
+            console.error("Erro ao salvar high score no localStorage:", e);
         }
     }
 
-    // RENOMEADO de setupInputListeners
     setupKeyboardListeners() {
         window.addEventListener('keydown', (e) => {
             this.keysPressed[e.key] = true;
@@ -1128,7 +1133,6 @@ class Game {
         });
     }
 
-    // RENOMEADO de setupTouchControls
     setupTouchButtonListeners() {
         const btnLeft = document.getElementById('btnLeft');
         const btnRight = document.getElementById('btnRight');
@@ -1154,26 +1158,24 @@ class Game {
 
             buttonElement.addEventListener('touchstart', startListener, { passive: false });
             buttonElement.addEventListener('touchend', endListener, { passive: false });
-            buttonElement.addEventListener('touchcancel', endListener, { passive: false }); 
+            buttonElement.addEventListener('touchcancel', endListener, { passive: false });
 
             buttonElement.addEventListener('mousedown', startListener);
             buttonElement.addEventListener('mouseup', endListener);
-            buttonElement.addEventListener('mouseleave', endListener); 
+            buttonElement.addEventListener('mouseleave', endListener);
         };
 
         setupButtonEvents(btnLeft, 'ArrowLeft');
         setupButtonEvents(btnRight, 'ArrowRight');
-        setupButtonEvents(btnShoot, ' '); 
-        setupButtonEvents(btnShield, 's');  
+        setupButtonEvents(btnShoot, ' ');
+        setupButtonEvents(btnShield, 's');
     }
 
-    // NOVO MÉTODO para lidar com toques/cliques no canvas para iniciar/reiniciar
     setupCanvasEventListeners() {
         const canvasInteractionHandler = (e) => {
             if (this.estadoJogo === "tela_inicio" || this.estadoJogo === "game_over") {
-                e.preventDefault(); 
+                e.preventDefault();
                 this.resetar();
-                // this.playSound('ui_confirm'); // Descomente se tiver um som de UI
             }
         };
 
@@ -1184,18 +1186,18 @@ class Game {
 
     _criarBackground() {
         const bgCanvas = document.createElement('canvas');
-        bgCanvas.width = LARGURA_TELA;
-        bgCanvas.height = ALTURA_TELA;
+        bgCanvas.width = this.LARGURA_TELA;
+        bgCanvas.height = this.ALTURA_TELA;
         const bgCtx = bgCanvas.getContext('2d');
         bgCtx.fillStyle = FUNDO_ESPACO;
-        bgCtx.fillRect(0, 0, LARGURA_TELA, ALTURA_TELA);
+        bgCtx.fillRect(0, 0, this.LARGURA_TELA, this.ALTURA_TELA);
 
-        for (let y = 0; y < ALTURA_TELA / 2; y++) {
-            const alpha = (50 * (1 - y / (ALTURA_TELA / 2))) / 255;
+        for (let y = 0; y < this.ALTURA_TELA / 2; y++) {
+            const alpha = (50 * (1 - y / (this.ALTURA_TELA / 2))) / 255;
             bgCtx.strokeStyle = `rgba(100, 100, 150, ${alpha.toFixed(2)})`;
             bgCtx.beginPath();
             bgCtx.moveTo(0, y);
-            bgCtx.lineTo(LARGURA_TELA, y);
+            bgCtx.lineTo(this.LARGURA_TELA, y);
             bgCtx.stroke();
         }
         return bgCanvas;
@@ -1204,29 +1206,29 @@ class Game {
     criarCenario() {
         this.grupoEstrelas = [];
         this.grupoElementosDistantes = [];
-        this.grupoNebulas = [];
-        
+        this.grupoNebulas = []; // Ensure it's an array
+
         const numEstrelasCamada = [80, 60, 40];
         for (let camada = 0; camada < 3; camada++) {
             for (let i = 0; i < numEstrelasCamada[camada]; i++) {
-                this.grupoEstrelas.push(new Estrela(camada));
+                this.grupoEstrelas.push(new Estrela(camada, this)); // Pass game instance
             }
         }
-        
-        this.grupoElementosDistantes.push(new Planeta(LARGURA_TELA / 4, ALTURA_TELA / 3));
-         this.grupoElementosDistantes.push(new Planeta(LARGURA_TELA * 0.75, ALTURA_TELA * 0.6)); 
+
+        this.grupoElementosDistantes.push(new Planeta(this.LARGURA_TELA / 4, this.ALTURA_TELA / 3, this)); // Pass game instance
+        this.grupoElementosDistantes.push(new Planeta(this.LARGURA_TELA * 0.75, this.ALTURA_TELA * 0.6, this)); // Pass game instance
 
         for (let i = 0; i < 3; i++) {
-            const size = [200, 300, 400][Math.floor(Math.random()*3)];
-            const x = Math.floor(Math.random() * (LARGURA_TELA - size)) + size / 2;
-            const y = Math.floor(Math.random() * (ALTURA_TELA - size)) + size / 2;
-            this.grupoNebulas.push(new Nebula(x, y, size));
+             const size = [200, 300, 400][Math.floor(Math.random()*3)] * (this.PIXEL_SCALE / 3) ; // Scale nebula size
+             const x = Math.floor(Math.random() * (this.LARGURA_TELA - size)) + size / 2;
+             const y = Math.floor(Math.random() * (this.ALTURA_TELA - size)) + size / 2;
+             this.grupoNebulas.push(new Nebula(x, y, size, this)); // Pass game instance
         }
     }
-    
+
     gerenciarCometas() {
         if (this.grupoCometas.length < this.maxCometas && Math.random() < this.chanceSpawnCometa) {
-            this.grupoCometas.push(new Cometa());
+            this.grupoCometas.push(new Cometa(this)); // Pass game instance
         }
         this.grupoCometas = this.grupoCometas.filter(c => c.alive);
     }
@@ -1239,7 +1241,7 @@ class Game {
         this.comboTimer = 0;
         this.iniciarNovaOnda();
         this.estadoJogo = "jogando";
-        this.playSound('game_start'); 
+        this.playSound('game_start');
     }
 
     iniciarNovaOnda() {
@@ -1250,12 +1252,12 @@ class Game {
         this.powerups = [];
         this.explosoes = [];
 
-        this.jogador = new Player(this); 
+        this.jogador = new Player(this);
 
         this.criarAliens();
         this.criarBarreiras();
-        
-        this.velXAlien = this.velXAlienBase + (this.nivel - 1) * 0.3;
+
+        this.velXAlien = this.velXAlienBase + (this.nivel - 1) * (0.3 * (this.PIXEL_SCALE / 3)); // Scale increment
         this.chanceTiroAlien = 0.002 + (this.nivel - 1) * 0.0008;
         this.alienMoveTimerMax = Math.max(10, 30 - (this.nivel - 1) * 3);
     }
@@ -1263,27 +1265,32 @@ class Game {
     criarAliens() {
         const numLinhas = 5;
         const numColunas = 11;
-        const sampleMap = ALIEN_1_PIXEL_MAPS[0];
-        const espacoX = sampleMap[0].length * PIXEL_SCALE * 1.8;
-        const espacoY = sampleMap.length * PIXEL_SCALE * 1.5;
-        const offsetX = (LARGURA_TELA - (numColunas - 1) * espacoX) / 2;
-        const offsetY = 60;
+        const sampleMap = ALIEN_1_PIXEL_MAPS[0]; // For base dimensions
+        // Calculate spacing based on scaled sprite sizes
+        const alienTestSprite = criarSpritePixelArt(sampleMap, "rgb(0,0,0)"); // Scale will be DYNAMIC_PIXEL_SCALE
+        const espacoX = alienTestSprite.frames[0].width * 1.8;
+        const espacoY = alienTestSprite.frames[0].height * 1.5;
+        
+        const offsetX = (this.LARGURA_TELA - (numColunas - 1) * espacoX) / 2;
+        const offsetY = this.ALTURA_TELA * 0.07; // Position aliens relative to screen height
 
-        if (this.nivel % 5 === 0) { 
-            const x = LARGURA_TELA / 2 - (ALIEN_BOSS_PIXEL_MAPS[0][0].length * PIXEL_SCALE / 2);
+
+        if (this.nivel % 5 === 0) { // Boss level
+            const bossTestSprite = criarSpritePixelArt(ALIEN_BOSS_PIXEL_MAPS[0], "rgb(0,0,0)");
+            const x = this.LARGURA_TELA / 2 - (bossTestSprite.frames[0].width / 2);
             const y = offsetY;
-            this.aliens.push(new Alien(x, y, 4, this)); 
+            this.aliens.push(new Alien(x, y, 4, this)); // Boss type 4
         } else {
             for (let linha = 0; linha < numLinhas; linha++) {
                 for (let coluna = 0; coluna < numColunas; coluna++) {
                     const x = offsetX + coluna * espacoX;
                     const y = offsetY + linha * espacoY;
                     let tipoAlien;
-                    if (Math.random() < 0.1) tipoAlien = 5; 
+                    if (Math.random() < 0.1) tipoAlien = 5; // Stealth
                     else if (linha < 1) tipoAlien = 3;
                     else if (linha < 3) tipoAlien = 2;
                     else tipoAlien = 1;
-                    this.aliens.push(new Alien(x, y, tipoAlien, this)); 
+                    this.aliens.push(new Alien(x, y, tipoAlien, this));
                 }
             }
         }
@@ -1291,20 +1298,33 @@ class Game {
 
     criarBarreiras() {
         const numBarreiras = 4;
-        const yBaseBarreira = ALTURA_TELA - 130 - 60; // Sobe barreiras para dar espaço aos controles de toque
-        const larguraBarreiraTotal = LARGURA_TELA / (numBarreiras + 1);
-        const segmentoLargura = BARREIRA_SEGMENTO_PIXEL_MAP[0].length * PIXEL_SCALE * 2;
-        const segmentoAltura = BARREIRA_SEGMENTO_PIXEL_MAP.length * PIXEL_SCALE * 2;
+        const yBaseBarreira = this.ALTURA_TELA - (180 * (this.PIXEL_SCALE/3)) - (60 * (this.PIXEL_SCALE/3)) ; // Scale y position
+        const larguraBarreiraTotal = this.LARGURA_TELA / (numBarreiras + 1);
         
+        // Create a sample segment to get its scaled dimensions
+        const sampleSegment = new BarreiraSegmento(0,0); // DYNAMIC_PIXEL_SCALE * 2 is used inside constructor
+        const segmentoLargura = sampleSegment.rect.width;
+        const segmentoAltura = sampleSegment.rect.height;
+
 
         for (let i = 0; i < numBarreiras; i++) {
             const centroXBarreira = (i + 1) * larguraBarreiraTotal;
-            for (let colIdx = 0; colIdx < 4; colIdx++) { 
-                for (let rowIdx = 0; rowIdx < 3; rowIdx++) { 
-                    if (!(rowIdx === 0 && (colIdx === 1 || colIdx === 2))) { 
-                        const xOffsetMultiplicador = colIdx - 1.5; 
+            for (let colIdx = 0; colIdx < 4; colIdx++) {
+                for (let rowIdx = 0; rowIdx < 3; rowIdx++) {
+                     // Original barrier shape:
+                     //  # ## #   (row 2) col 0, (col 1,2 empty), col 3
+                     //  ######   (row 1) col 0,1,2,3
+                     //  ######   (row 0) col 0,1,2,3
+                     //  Adjusting condition to make a more standard bunker shape:
+                     //  #### (top, row 2)
+                     //  #### (middle, row 1)
+                     //  #  # (bottom, row 0, with gap)
+                     // Let's stick to the original user's shape logic: (!(rowIdx === 0 && (colIdx === 1 || colIdx === 2)))
+                     // This means the bottom row is missing its two middle segments.
+                    if (!(rowIdx === 0 && (colIdx === 1 || colIdx === 2))) { // Original logic for bunker shape
+                        const xOffsetMultiplicador = colIdx - 1.5; // Centers the 4 segments
                         const x = centroXBarreira + (xOffsetMultiplicador * segmentoLargura);
-                        const y = yBaseBarreira - ((2 - rowIdx) * segmentoAltura);
+                        const y = yBaseBarreira - ((2 - rowIdx) * segmentoAltura); // (2-rowIdx) inverts row order so 0 is bottom
                         this.barreiras.push(new BarreiraSegmento(x, y));
                     }
                 }
@@ -1314,9 +1334,15 @@ class Game {
 
     moverAliens() {
         this.alienMoveTimer++;
-        const multiplicadorVelocidade = this.aliens.length > 0 ? Math.max(0.1, this.aliens.filter(a=>a.alive).length / (5.0 * 11.0)) + 0.3 : 1.0;
+        // Adjust speed multiplier based on remaining aliens
+        const aliveAliensCount = this.aliens.filter(a=>a.alive).length;
+        const totalInitialAliens = (this.nivel % 5 === 0) ? 1 : (5*11); // Approx initial count
+        const proportionRemaining = aliveAliensCount / Math.max(1, totalInitialAliens);
+        // Speed increases as fewer aliens remain. Max speed up is e.g. 3x base. Min is 1x base.
+        const speedMultiplierBasedOnCount = 1 + (1 - proportionRemaining) * 2;
 
-        if (this.alienMoveTimer < this.alienMoveTimerMax * multiplicadorVelocidade) {
+
+        if (this.alienMoveTimer < (this.alienMoveTimerMax / speedMultiplierBasedOnCount) ) {
             return;
         }
         this.alienMoveTimer = 0;
@@ -1326,7 +1352,7 @@ class Game {
 
         if (this.alienDirecaoDescidaPendente) {
             currentVelY = this.velYAlienDescida;
-            this.velXAlien *= -1;
+            this.velXAlien *= -1; // Reverse horizontal direction
             this.alienDirecaoDescidaPendente = false;
         } else {
             currentVelX = this.velXAlien;
@@ -1334,15 +1360,16 @@ class Game {
             for (const alien of this.aliens) {
                 if (!alien.alive) continue;
                 const nextX = alien.rect.x + currentVelX;
-                if ((nextX + alien.rect.width > LARGURA_TELA - PIXEL_SCALE * 2 && currentVelX > 0) ||
-                    (nextX < PIXEL_SCALE * 2 && currentVelX < 0)) {
+                // Check bounds, ensure some padding from edge based on PIXEL_SCALE
+                if ((nextX + alien.rect.width > this.LARGURA_TELA - (this.PIXEL_SCALE * 2) && currentVelX > 0) ||
+                    (nextX < (this.PIXEL_SCALE * 2) && currentVelX < 0)) {
                     moverParaBaixoNesteCiclo = true;
                     break;
                 }
             }
             if (moverParaBaixoNesteCiclo) {
                 this.alienDirecaoDescidaPendente = true;
-                currentVelX = 0; 
+                currentVelX = 0; // Don't move horizontally when preparing to descend
             }
         }
         this.aliens.forEach(alien => {
@@ -1353,19 +1380,26 @@ class Game {
     aliensAtiram() {
         this.aliens.forEach(alien => {
             if (!alien.alive) return;
-            const chanceBase = this.chanceTiroAlien * (alien.tipo === 4 ? 2 : 1);
-            const modificadorQuantidade = (1 + ((5 * 11) - this.aliens.filter(a=>a.alive).length) / (5 * 11.0)) * 2;
+            const chanceBase = this.chanceTiroAlien * (alien.tipo === 4 ? 2 : 1); // Boss shoots more
+            
+            // Make aliens shoot more often as their numbers dwindle
+            const aliveAliensCount = this.aliens.filter(a=>a.alive).length;
+            const totalInitialAliens = (this.nivel % 5 === 0) ? 1 : (5*11); // Approx count
+            const modificadorQuantidade = (1 + (totalInitialAliens - aliveAliensCount) / Math.max(1,totalInitialAliens)) * 2; 
+            
             if (Math.random() < chanceBase * modificadorQuantidade) {
                 this.projeteisAliens.push(new Projetil(
                     alien.rect.x + alien.rect.width / 2,
                     alien.rect.y + alien.rect.height,
-                    VERMELHO_ALIEN_PROJETIL, 6
+                    VERMELHO_ALIEN_PROJETIL, 
+                    6 * (this.PIXEL_SCALE / 3), // Scale projectile speed
+                    false, null, this // Pass game instance
                 ));
-                this.playSound('alien_shoot'); 
+                this.playSound('alien_shoot');
             }
         });
     }
-    
+
     checkCollision(rect1, rect2) {
         return rect1.x < rect2.x + rect2.width &&
                rect1.x + rect1.width > rect2.x &&
@@ -1377,52 +1411,55 @@ class Game {
         this.projeteisJogador.forEach(proj => {
             if (!proj.alive) return;
             this.aliens.forEach(alien => {
-                if (!alien.alive || !proj.alive) return; 
-                if (alien.tipo === 5 && alien.isCloaked) return;
+                if (!alien.alive || !proj.alive) return;
+                if (alien.tipo === 5 && alien.isCloaked) return; // Stealth alien cloaked
 
                 if (this.checkCollision(proj.rect, alien.rect)) {
-                    proj.alive = false; 
-                    alien.hit(); 
-                    if (!alien.alive) { 
+                    proj.alive = false;
+                    alien.hit();
+                    if (!alien.alive) { // Alien defeated
                         this.combo++;
                         this.comboTimer = performance.now();
                         const multiplier = Math.min(Math.floor(this.combo / 5) + 1, 5);
                         this.pontuacao += alien.pontos * multiplier;
-                        this.scoreFlash = 30; 
-                        const tamanhoExplosao = alien.tipo === 4 ? 'grande' : 'pequeno';
+                        this.scoreFlash = 30; // For HUD score flash
+                        const tamanhoExplosao = alien.tipo === 4 ? 'grande' : 'pequeno'; // Boss has large explosion
                         this.explosoes.push(new Explosao({x: alien.rect.x + alien.rect.width/2, y: alien.rect.y + alien.rect.height/2}, tamanhoExplosao));
-                        this.playSound(tamanhoExplosao === 'grande' ? 'explosion_large' : 'explosion_small'); 
+                        this.playSound(tamanhoExplosao === 'grande' ? 'explosion_large' : 'explosion_small');
 
                         if (tamanhoExplosao === 'grande') this.shakeFrames = screenShake(5, 10);
 
-                        if (Math.random() < 0.15) { 
+                        // Chance to drop a power-up
+                        if (Math.random() < 0.15) {
                             const tipoPowerup = ['vida', 'shoot', 'shield', 'multi', 'speed', 'homing'][Math.floor(Math.random()*6)];
-                            this.powerups.push(new PowerUp(alien.rect.x + alien.rect.width/2, alien.rect.y + alien.rect.height/2, tipoPowerup));
+                            this.powerups.push(new PowerUp(alien.rect.x + alien.rect.width/2, alien.rect.y + alien.rect.height/2, tipoPowerup, this)); // Pass game instance
                         }
                     }
                 }
             });
         });
 
-        if (this.aliens.filter(a => a.alive).length === 0 && this.estadoJogo === "jogando") { 
+        // Check if all aliens are defeated to advance level
+        if (this.aliens.filter(a => a.alive).length === 0 && this.estadoJogo === "jogando") {
             this.nivel++;
             this.mostrarMensagemTemporaria(`Nível ${this.nivel}!`, 1.5);
             this.iniciarNovaOnda();
-            return; 
+            return; // Return to avoid further collision checks in this frame after reset
         }
 
+        // Player collision with power-ups
         if (this.jogador) {
             this.powerups.forEach(powerup => {
                 if (!powerup.alive) return;
                 if (this.checkCollision(this.jogador.rect, powerup.rect)) {
                     powerup.alive = false;
-                    this.playSound('powerup_collect'); 
+                    this.playSound('powerup_collect');
                     if (powerup.tipo === 'vida') this.vidas = Math.min(this.vidas + 1, 5);
                     else if (powerup.tipo === 'shoot') this.jogador.cooldownTiro = Math.max(100, this.jogador.cooldownTiro - 50);
                     else if (powerup.tipo === 'shield') {
                         this.jogador.shieldActive = true;
                         this.jogador.shieldStart = performance.now();
-                        this.playSound('shield_up'); 
+                        this.playSound('shield_up');
                     } else if (powerup.tipo === 'multi') {
                         this.jogador.multiShotActive = true;
                         this.jogador.multiShotStart = performance.now();
@@ -1436,32 +1473,37 @@ class Game {
                 }
             });
         }
-        
+
+        // Player collision with alien projectiles
         if (this.jogador && !this.jogador.shieldActive) {
-            this.projeteisAliens.forEach(proj => {
-                if (!proj.alive) return;
+            for (const proj of this.projeteisAliens) {
+                if (!proj.alive) continue;
+                if (!this.jogador) break; // Player might have been destroyed in this loop
+
                 if (this.checkCollision(this.jogador.rect, proj.rect)) {
                     proj.alive = false;
-                    if (this.jogador.takeHit()) {
+                    if (this.jogador.takeHit()) { // takeHit handles invulnerability frames
                         this.vidas--;
                         this.combo = 0;
-                        this.playSound('player_hit'); 
-                        this.explosoes.push(new Explosao({x: this.jogador.rect.x + this.jogador.rect.width/2, y: this.jogador.rect.y + this.jogador.rect.height/2}, 'grande'));
+                        this.playSound('player_hit');
+                        this.explosoes.push(new Explosao({ x: this.jogador.rect.x + this.jogador.rect.width / 2, y: this.jogador.rect.y + this.jogador.rect.height / 2 }, 'grande'));
                         this.shakeFrames = screenShake(5, 10);
-                        
+
                         if (this.vidas <= 0) {
-                            this.playSound('game_over_sound'); 
-                            this.saveHighScore(this.pontuacao); 
+                            this.playSound('game_over_sound');
+                            this.saveHighScore(this.pontuacao);
                             this.estadoJogo = "game_over";
-                            this.jogador = null; 
+                            this.jogador = null; // Player is gone
+                            break; // Exit projectile loop as game is over
                         } else {
                             this.mostrarMensagemTemporaria(`Vidas restantes: ${this.vidas}`, 1);
                         }
                     }
                 }
-            });
+            }
         }
 
+        // Projectiles (player and alien) collision with barriers
         const allProjectiles = [...this.projeteisJogador, ...this.projeteisAliens];
         allProjectiles.forEach(proj => {
             if (!proj.alive) return;
@@ -1470,151 +1512,208 @@ class Game {
                 if (this.checkCollision(proj.rect, barreira.rect)) {
                     proj.alive = false;
                     barreira.atingido();
-                    this.playSound('barrier_hit'); 
+                    this.playSound('barrier_hit');
+                    // Create a small, simple explosion for barrier hit
+                    const explFrames = criarSpritePixelArt([["1"]], COR_BARREIRA, this.PIXEL_SCALE).frames;
                     const expl = new Explosao({x: proj.rect.centerx, y: proj.rect.centery}, 'pequeno');
-                    expl.frames = criarSpritePixelArt([["1"]], COR_BARREIRA, PIXEL_SCALE).frames; 
+                    expl.frames = explFrames; // Override with simpler frames
                     expl.animDelay = 0.05 * 1000;
                     this.explosoes.push(expl);
                 }
             });
         });
-        
+
+        // Aliens collision with barriers
         this.aliens.forEach(alien => {
             if(!alien.alive) return;
             this.barreiras.forEach(barreira => {
                 if(!barreira.alive) return;
                 if(this.checkCollision(alien.rect, barreira.rect)) {
-                    barreira.alive = false; 
-                    this.playSound('barrier_destroyed'); 
+                    barreira.alive = false; // Alien destroys barrier segment instantly
+                    this.playSound('barrier_destroyed');
+                    this.explosoes.push(new Explosao({x: barreira.rect.x + barreira.rect.width/2 , y: barreira.rect.y + barreira.rect.height/2}, 'pequeno'));
                 }
             });
         });
 
 
-        if (this.jogador && this.estadoJogo === "jogando") { 
-            let gameOverByAlien = false;
-            this.aliens.forEach(alien => {
-                if (!alien.alive || gameOverByAlien) return;
-                 if (alien.tipo === 5 && alien.isCloaked && this.checkCollision(this.jogador.rect, alien.rect)) {
-                 } else if (this.checkCollision(this.jogador.rect, alien.rect) && !(alien.tipo === 5 && alien.isCloaked)) {
-                    if (this.jogador.takeHit()) { 
-                        if(this.vidas <= 0) gameOverByAlien = true; 
-                    }
-                }
-                if (alien.rect.y + alien.rect.height > this.jogador.rect.y + this.jogador.rect.height * 0.8) { 
-                     if (this.jogador.takeHit()) {
-                        if(this.vidas <= 0) gameOverByAlien = true;
-                    }
-                }
-            });
+        // Player collision with aliens directly, or aliens reaching player's line
+        if (this.jogador && this.estadoJogo === "jogando") {
+            let gameOverByAlienContactOrPass = false;
+            const aliensAtuais = [...this.aliens]; // Iterate over a copy if modifying live list
 
-            if (gameOverByAlien) { 
-                this.playSound('game_over_sound'); 
-                if(this.jogador) { 
-                    this.explosoes.push(new Explosao({x: this.jogador.rect.x + this.jogador.rect.width/2, y: this.jogador.rect.y + this.jogador.rect.height/2}, 'grande'));
+            for (const alien of aliensAtuais) {
+                if (!alien.alive || gameOverByAlienContactOrPass) {
+                    continue;
                 }
-                this.shakeFrames = screenShake(5, 10);
-                this.saveHighScore(this.pontuacao); 
+
+                let hitOccurredThisIteration = false;
+
+                // Direct collision with non-cloaked alien
+                if (!(alien.tipo === 5 && alien.isCloaked) && this.checkCollision(this.jogador.rect, alien.rect)) {
+                    if (this.jogador.takeHit()) {
+                        hitOccurredThisIteration = true;
+                    }
+                }
+
+                // Alien reaches player's approximate vertical position (game over condition)
+                // Check if bottom of alien passes roughly 80% of player's height from top of player.
+                if (!hitOccurredThisIteration && (alien.rect.y + alien.rect.height > this.jogador.rect.y + this.jogador.rect.height * 0.2)) {
+                     //This implies aliens reached the player line - more severe, could be instant game over or major damage.
+                     //For simplicity, let's treat as a hit for now, leading to game over if vidas run out.
+                    if (this.jogador.takeHit()) { // Player takes a hit
+                        hitOccurredThisIteration = true;
+                         // If aliens reach the line, traditionally it's game over.
+                         // To make it more impactful, we could directly set vidas = 0 or estadoJogo = "game_over"
+                         // For now, it just behaves like a normal hit.
+                    }
+                }
+
+
+                if (hitOccurredThisIteration) {
+                    this.vidas--;
+                    this.combo = 0;
+                    this.playSound('player_hit');
+                    this.explosoes.push(new Explosao({ x: this.jogador.rect.x + this.jogador.rect.width / 2, y: this.jogador.rect.y + this.jogador.rect.height / 2 }, 'grande'));
+                    this.shakeFrames = screenShake(5, 10);
+
+                    if (this.vidas <= 0) {
+                        gameOverByAlienContactOrPass = true;
+                        break; // Exit alien loop
+                    } else {
+                        this.mostrarMensagemTemporaria(`Vidas restantes: ${this.vidas}`, 1);
+                    }
+                }
+            }
+
+            if (gameOverByAlienContactOrPass) {
+                this.playSound('game_over_sound');
+                this.saveHighScore(this.pontuacao);
                 this.estadoJogo = "game_over";
-                this.jogador = null;
+                this.jogador = null; // Player is gone
 
+                // Optionally, destroy all remaining aliens visually
                 this.aliens.forEach(a => {
                     if (a.alive) {
-                        this.explosoes.push(new Explosao({x: a.rect.x + a.rect.width/2, y: a.rect.y + a.rect.height/2}, 'pequeno'));
+                        this.explosoes.push(new Explosao({ x: a.rect.x + a.rect.width / 2, y: a.rect.y + a.rect.height / 2 }, 'pequeno'));
                         a.alive = false;
                     }
                 });
             }
         }
-        
+
+        // Cleanup dead entities
         this.aliens = this.aliens.filter(s => s.alive);
         this.projeteisJogador = this.projeteisJogador.filter(s => s.alive);
         this.projeteisAliens = this.projeteisAliens.filter(s => s.alive);
         this.barreiras = this.barreiras.filter(s => s.alive);
         this.powerups = this.powerups.filter(s => s.alive);
-        this.explosoes = this.explosoes.filter(s => s.alive || s.particles.length > 0);
+        // Explosions are kept if their animation is playing OR they still have particles
+        this.explosoes = this.explosoes.filter(e => e.alive || e.particles.length > 0);
     }
 
     drawTimerBar(x, y, width, height, percentage, color) {
-        this.ctx.fillStyle = '#333'; 
+        this.ctx.fillStyle = '#333'; // Background of the bar
         this.ctx.fillRect(x, y, width, height);
-        this.ctx.fillStyle = color;
+        this.ctx.fillStyle = color; // Fill of the bar
         this.ctx.fillRect(x, y, width * percentage, height);
-        this.ctx.strokeStyle = BRANCO; 
+        this.ctx.strokeStyle = BRANCO; // Border for the bar
         this.ctx.strokeRect(x, y, width, height);
     }
 
     desenharHud() {
-        const hudAltura = 70; 
+        const hudAltura = this.ALTURA_TELA * 0.08; // HUD height relative to screen
         this.ctx.fillStyle = COR_HUD_FUNDO;
-        this.ctx.fillRect(0, 0, LARGURA_TELA, hudAltura);
+        this.ctx.fillRect(0, 0, this.LARGURA_TELA, hudAltura);
         this.ctx.strokeStyle = BRANCO;
-        this.ctx.lineWidth = 2;
+        this.ctx.lineWidth = 2; // Keep line width reasonable
         this.ctx.beginPath();
         this.ctx.moveTo(0, hudAltura);
-        this.ctx.lineTo(LARGURA_TELA, hudAltura);
+        this.ctx.lineTo(this.LARGURA_TELA, hudAltura);
         this.ctx.stroke();
 
-        this.ctx.font = this.fonteHud;
+        this.ctx.font = this.fonteHud; // Already dynamically sized
         const scoreColor = this.scoreFlash > 0 ? "rgb(255,255,0)" : COR_TEXTO;
         this.scoreFlash = Math.max(0, this.scoreFlash - 1);
-        
+
+        const padding = this.LARGURA_TELA * 0.02; // Padding relative to screen width
         this.ctx.fillStyle = scoreColor;
-        this.ctx.fillText(`PONTOS: ${this.pontuacao}`, 20, 30);
+        this.ctx.fillText(`PONTOS: ${this.pontuacao}`, padding, hudAltura * 0.4);
 
         if (this.combo > 0) {
             this.ctx.fillStyle = "rgb(255,100,100)";
-            this.ctx.fillText(`Combo: x${Math.min(Math.floor(this.combo / 5) + 1, 5)}`, 20, 55); 
+            this.ctx.fillText(`Combo: x${Math.min(Math.floor(this.combo / 5) + 1, 5)}`, padding, hudAltura * 0.75);
         }
-        
-        const vidaSpriteData = criarSpritePixelArt(PLAYER_PIXEL_MAP_BASE, VERDE_JOGADOR, PIXEL_SCALE / 2);
+
+        // Draw player lives (small sprites)
+        // Scale vidaSprite based on DYNAMIC_PIXEL_SCALE but keep it small
+        const vidaSpriteScale = Math.max(1, Math.floor(DYNAMIC_PIXEL_SCALE / 2));
+        const vidaSpriteData = criarSpritePixelArt(PLAYER_PIXEL_MAP_BASE, VERDE_JOGADOR, vidaSpriteScale);
         const vidaSprite = vidaSpriteData.frames[0];
         for (let i = 0; i < this.vidas; i++) {
-            this.ctx.drawImage(vidaSprite, LARGURA_TELA - (i + 1) * (vidaSprite.width + 10) - 20, 15);
+            this.ctx.drawImage(vidaSprite, this.LARGURA_TELA - (i + 1) * (vidaSprite.width + padding * 0.5) - padding, hudAltura * 0.2);
         }
 
         this.ctx.fillStyle = COR_TEXTO;
         const textoNivel = `NÍVEL: ${this.nivel}`;
         const nivelMetrics = this.ctx.measureText(textoNivel);
-        this.ctx.fillText(textoNivel, (LARGURA_TELA - nivelMetrics.width) / 2, 30);
+        this.ctx.fillText(textoNivel, (this.LARGURA_TELA - nivelMetrics.width) / 2, hudAltura * 0.4);
 
-        let powerupTextY = 15; 
-        let powerupBarX = (LARGURA_TELA - nivelMetrics.width) / 2 - 120; 
-        if(powerupBarX < 200) powerupBarX = 200; 
+        // Power-up timers display
+        let powerupTextY = hudAltura * 0.15; // Start Y pos for powerup text/bars
+        const powerupBarWidth = this.LARGURA_TELA * 0.12; // Bar width relative to screen
+        const powerupBarHeight = hudAltura * 0.12; // Bar height relative to HUD
+        const powerupLabelXOffset = this.LARGURA_TELA * 0.08; // X offset for label from bar
+        let powerupBarX = (this.LARGURA_TELA - nivelMetrics.width) / 2 + nivelMetrics.width + padding * 2; // Position to the right of "NIVEL"
+        if (powerupBarX + powerupBarWidth + powerupLabelXOffset > this.LARGURA_TELA - (this.vidas * (vidaSprite.width + padding*0.5) + padding*2) ) {
+             powerupBarX = this.LARGURA_TELA * 0.35; // Fallback position if too crowded
+        }
 
+
+        const getOpaqueTextColor = (colorString) => { /* ... same as before ... */ 
+            if (colorString.startsWith("rgb(")) return colorString.replace("rgb(", "rgba(").replace(")", ", 1)");
+            if (colorString.startsWith("rgba(")) return colorString.replace(/,[^,]+?\)$/, ", 1)");
+            return colorString;
+        };
 
         if (this.jogador) {
             const agora = performance.now();
-            if (this.jogador.shieldActive) {
-                this.ctx.fillStyle = COR_POWERUP_SHIELD.replace(/[^,]+?\)$/, '1)');
-                this.ctx.fillText("Escudo:", powerupBarX - 70, powerupTextY + 10);
+            const maxPowerupDisplay = 3; // Max powerups to show to avoid clutter
+            let displayedPowerups = 0;
+
+            if (this.jogador.shieldActive && displayedPowerups < maxPowerupDisplay) {
+                this.ctx.fillStyle = getOpaqueTextColor(COR_POWERUP_SHIELD);
+                this.ctx.fillText("Escudo:", powerupBarX - powerupLabelXOffset, powerupTextY + powerupBarHeight*0.8);
                 const timeLeft = this.jogador.shieldDuration - (agora - this.jogador.shieldStart);
                 const percentage = Math.max(0, timeLeft / this.jogador.shieldDuration);
-                this.drawTimerBar(powerupBarX, powerupTextY, 100, 10, percentage, COR_POWERUP_SHIELD);
-                powerupTextY += 20;
+                this.drawTimerBar(powerupBarX, powerupTextY, powerupBarWidth, powerupBarHeight, percentage, COR_POWERUP_SHIELD);
+                powerupTextY += powerupBarHeight + hudAltura * 0.05;
+                displayedPowerups++;
             }
-            if (this.jogador.multiShotActive) {
-                this.ctx.fillStyle = COR_POWERUP_MULTI.replace(/[^,]+?\)$/, '1)');
-                this.ctx.fillText("Multi:", powerupBarX - 70, powerupTextY + 10);
+            if (this.jogador.multiShotActive && displayedPowerups < maxPowerupDisplay) {
+                this.ctx.fillStyle = getOpaqueTextColor(COR_POWERUP_MULTI);
+                this.ctx.fillText("Multi:", powerupBarX - powerupLabelXOffset, powerupTextY + powerupBarHeight*0.8);
                 const timeLeft = this.jogador.multiShotDuration - (agora - this.jogador.multiShotStart);
                 const percentage = Math.max(0, timeLeft / this.jogador.multiShotDuration);
-                this.drawTimerBar(powerupBarX, powerupTextY, 100, 10, percentage, COR_POWERUP_MULTI);
-                powerupTextY += 20;
+                this.drawTimerBar(powerupBarX, powerupTextY, powerupBarWidth, powerupBarHeight, percentage, COR_POWERUP_MULTI);
+                powerupTextY += powerupBarHeight + hudAltura * 0.05;
+                displayedPowerups++;
             }
-             if (this.jogador.speedBoostActive) {
-                this.ctx.fillStyle = COR_POWERUP_SPEED.replace(/[^,]+?\)$/, '1)');
-                this.ctx.fillText("Veloc.:", powerupBarX - 70, powerupTextY + 10);
+             if (this.jogador.speedBoostActive && displayedPowerups < maxPowerupDisplay) {
+                this.ctx.fillStyle = getOpaqueTextColor(COR_POWERUP_SPEED);
+                this.ctx.fillText("Veloc.:", powerupBarX - powerupLabelXOffset, powerupTextY + powerupBarHeight*0.8);
                 const timeLeft = this.jogador.speedBoostDuration - (agora - this.jogador.speedBoostStart);
                 const percentage = Math.max(0, timeLeft / this.jogador.speedBoostDuration);
-                this.drawTimerBar(powerupBarX, powerupTextY, 100, 10, percentage, COR_POWERUP_SPEED);
-                powerupTextY += 20;
+                this.drawTimerBar(powerupBarX, powerupTextY, powerupBarWidth, powerupBarHeight, percentage, COR_POWERUP_SPEED);
+                powerupTextY += powerupBarHeight + hudAltura * 0.05;
+                displayedPowerups++;
             }
-             if (this.jogador.homingActive && powerupTextY < hudAltura - 5) { 
-                this.ctx.fillStyle = COR_POWERUP_HOMING.replace(/[^,]+?\)$/, '1)');
-                this.ctx.fillText("Homing:", powerupBarX - 70, powerupTextY + 10);
+             if (this.jogador.homingActive && displayedPowerups < maxPowerupDisplay && powerupTextY < hudAltura - powerupBarHeight) {
+                this.ctx.fillStyle = getOpaqueTextColor(COR_POWERUP_HOMING);
+                this.ctx.fillText("Homing:", powerupBarX - powerupLabelXOffset, powerupTextY + powerupBarHeight*0.8);
                 const timeLeft = this.jogador.homingDuration - (agora - this.jogador.homingStart);
                 const percentage = Math.max(0, timeLeft / this.jogador.homingDuration);
-                this.drawTimerBar(powerupBarX, powerupTextY, 100, 10, percentage, COR_POWERUP_HOMING);
+                this.drawTimerBar(powerupBarX, powerupTextY, powerupBarWidth, powerupBarHeight, percentage, COR_POWERUP_HOMING);
              }
         }
     }
@@ -1632,16 +1731,16 @@ class Game {
                 this.mensagemTemporaria = null;
             } else {
                 this.ctx.fillStyle = "rgba(0,0,0,0.5)";
-                this.ctx.fillRect(0, 0, LARGURA_TELA, ALTURA_TELA);
-                this.ctx.font = this.fonteMedia;
+                this.ctx.fillRect(0, 0, this.LARGURA_TELA, this.ALTURA_TELA);
+                this.ctx.font = this.fonteMedia; // Dynamically sized
                 this.ctx.fillStyle = BRANCO;
                 this.ctx.textAlign = "center";
-                this.ctx.fillText(this.mensagemTemporaria.text, LARGURA_TELA / 2, ALTURA_TELA / 2);
-                this.ctx.textAlign = "left"; 
+                this.ctx.fillText(this.mensagemTemporaria.text, this.LARGURA_TELA / 2, this.ALTURA_TELA / 2);
+                this.ctx.textAlign = "left"; // Reset alignment
             }
         }
     }
-    
+
     telaDeInicio() {
         this.ctx.drawImage(this.background, 0, 0);
         this.grupoNebulas.forEach(n => n.draw(this.ctx));
@@ -1650,18 +1749,17 @@ class Game {
 
 
         this.ctx.textAlign = "center";
-        this.ctx.font = this.fonteTitulo;
+        this.ctx.font = this.fonteTitulo; // Dynamically sized
         this.ctx.fillStyle = VERDE_JOGADOR;
-        this.ctx.fillText("CODEVERSE GAME", LARGURA_TELA / 2, ALTURA_TELA / 2 - 100);
-        
-        this.ctx.font = this.fonteMedia;
+        this.ctx.fillText("CODEVERSE GAME", this.LARGURA_TELA / 2, this.ALTURA_TELA / 2 - this.ALTURA_TELA * 0.12);
+
+        this.ctx.font = this.fonteMedia; // Dynamically sized
         this.ctx.fillStyle = BRANCO;
-        this.ctx.fillText("Criado por João Marcelo Detomini", LARGURA_TELA / 2, ALTURA_TELA / 2 - 40);
-        
-        this.ctx.font = this.fonteHud;
-        this.ctx.fillText("TOQUE NA TELA ou ENTER para começar", LARGURA_TELA / 2, ALTURA_TELA / 2 + 50);
-        this.ctx.fillText("Setas/Botões para mover, ESPAÇO/Botão para atirar, S/Botão para escudo", LARGURA_TELA / 2, ALTURA_TELA / 2 + 80);
-        this.ctx.textAlign = "left"; 
+        this.ctx.fillText("Por João Marcelo", this.LARGURA_TELA / 2, this.ALTURA_TELA / 2 - this.ALTURA_TELA * 0.05);
+
+        this.ctx.font = this.fonteHud; // Dynamically sized
+        this.ctx.fillText("TOQUE NA TELA para começar", this.LARGURA_TELA / 2, this.ALTURA_TELA / 2 + this.ALTURA_TELA * 0.06);
+        this.ctx.textAlign = "left"; // Reset alignment
     }
 
     telaGameOver() {
@@ -1671,33 +1769,36 @@ class Game {
         this.grupoEstrelas.forEach(s => s.draw(this.ctx));
 
         this.ctx.textAlign = "center";
-        this.ctx.font = this.fonteTitulo;
+        this.ctx.font = this.fonteTitulo; // Dynamically sized
         this.ctx.fillStyle = VERMELHO_ALIEN_PROJETIL;
-        this.ctx.fillText("GAME OVER", LARGURA_TELA / 2, ALTURA_TELA / 2 - 120);
-        
-        this.ctx.font = this.fonteMedia;
-        this.ctx.fillStyle = BRANCO;
-        this.ctx.fillText(`Pontuação Final: ${this.pontuacao}`, LARGURA_TELA / 2, ALTURA_TELA / 2 - 60);
-        
-        this.ctx.font = this.fonteHud;
-        this.ctx.fillText("TOQUE NA TELA ou ENTER para reiniciar", LARGURA_TELA / 2, ALTURA_TELA / 2 + 160);
+        this.ctx.fillText("GAME OVER", this.LARGURA_TELA / 2, this.ALTURA_TELA * 0.25);
 
-        this.ctx.font = this.fonteMedia;
-        this.ctx.fillStyle = "rgb(255, 215, 0)"; 
-        this.ctx.fillText("Melhores Pontuações:", LARGURA_TELA / 2, ALTURA_TELA / 2 - 10);
-        this.ctx.font = this.fonteHud;
+        this.ctx.font = this.fonteMedia; // Dynamically sized
+        this.ctx.fillStyle = BRANCO;
+        this.ctx.fillText(`Pontuação Final: ${this.pontuacao}`, this.LARGURA_TELA / 2, this.ALTURA_TELA * 0.35);
+        
+        this.ctx.font = this.fonteMedia; // Dynamically sized
+        this.ctx.fillStyle = "rgb(255, 215, 0)"; // Gold
+        this.ctx.fillText("Melhores Pontuações:", this.LARGURA_TELA / 2, this.ALTURA_TELA * 0.45);
+        
+        this.ctx.font = this.fonteHud; // Dynamically sized for scores
+        const scoreYStart = this.ALTURA_TELA * 0.50;
+        const scoreLineHeight = this.ALTURA_TELA * 0.035;
         this.highScores.forEach((entry, index) => {
-            this.ctx.fillText(`${index + 1}. ${entry.name} - ${entry.score} (${entry.date})`, LARGURA_TELA / 2, ALTURA_TELA / 2 + 30 + (index * 25));
+            this.ctx.fillText(`${index + 1}. ${entry.name} - ${entry.score} (${entry.date})`, this.LARGURA_TELA / 2, scoreYStart + (index * scoreLineHeight));
         });
 
-        this.ctx.textAlign = "left"; 
+        this.ctx.font = this.fonteHud; // Dynamically sized
+        this.ctx.fillStyle = BRANCO;
+        this.ctx.fillText("TOQUE NA TELA para reiniciar", this.LARGURA_TELA / 2, this.ALTURA_TELA * 0.85);
+        this.ctx.textAlign = "left"; // Reset alignment
     }
 
 
     loopPrincipal() {
         if (!this.rodando) {
             console.log("Jogo encerrado.");
-            return; 
+            return;
         }
 
         const agora = performance.now();
@@ -1705,19 +1806,19 @@ class Game {
         this.ctx.save();
         if (this.shakeFrames.length > 0) {
             const [shakeX, shakeY] = this.shakeFrames.shift();
-            this.ctx.translate(shakeX, shakeY);
+            this.ctx.translate(shakeX * (this.PIXEL_SCALE/3), shakeY * (this.PIXEL_SCALE/3)); // Scale shake effect
         }
-        
-        this.ctx.drawImage(this.background, 0, 0); 
+
+        this.ctx.drawImage(this.background, 0, 0);
 
         if (this.estadoJogo === "tela_inicio") {
             this.telaDeInicio();
-            this.grupoNebulas.forEach(n => n.update()); // Movimento sutil no fundo
+            this.grupoNebulas.forEach(n => n.update());
             this.grupoEstrelas.forEach(s => s.update());
             this.grupoElementosDistantes.forEach(e => e.update());
         } else if (this.estadoJogo === "game_over") {
             this.telaGameOver();
-            this.grupoNebulas.forEach(n => n.update()); // Movimento sutil no fundo
+            this.grupoNebulas.forEach(n => n.update());
             this.grupoEstrelas.forEach(s => s.update());
             this.grupoElementosDistantes.forEach(e => e.update());
         } else if (this.estadoJogo === "jogando") {
@@ -1729,12 +1830,12 @@ class Game {
 
             if (this.jogador) {
                 this.jogador.update(this.keysPressed);
-                if (this.keysPressed[' ']) { 
+                if (this.keysPressed[' ']) { // Space bar for shooting
                     this.jogador.atirar(this.projeteisJogador, this.aliens);
                 }
             }
-            
-            this.moverAliens(); 
+
+            this.moverAliens();
             this.aliensAtiram();
 
             this.projeteisJogador.forEach(p => p.update());
@@ -1744,28 +1845,30 @@ class Game {
 
             this.checarColisoes();
 
-            if (this.combo > 0 && agora - this.comboTimer > 2000) { 
+            // Combo timer reset
+            if (this.combo > 0 && agora - this.comboTimer > 2000) { // 2 seconds to continue combo
                 this.combo = 0;
             }
 
+            // --- Drawing order ---
             this.grupoNebulas.forEach(n => n.draw(this.ctx));
             this.grupoElementosDistantes.forEach(e => e.draw(this.ctx));
             this.grupoEstrelas.forEach(s => s.draw(this.ctx));
             this.grupoCometas.forEach(c => c.draw(this.ctx));
-            
+
             this.barreiras.forEach(b => b.draw(this.ctx));
             this.powerups.forEach(p => p.draw(this.ctx));
             this.aliens.forEach(a => a.draw(this.ctx));
+            this.projeteisAliens.forEach(p => p.draw(this.ctx)); // Alien projectiles below player's
             this.projeteisJogador.forEach(p => p.draw(this.ctx));
-            this.projeteisAliens.forEach(p => p.draw(this.ctx));
             if (this.jogador) this.jogador.draw(this.ctx);
             this.explosoes.forEach(e => e.draw(this.ctx));
-            
+
             this.desenharHud();
             this.desenharMensagemTemporaria();
         }
-        
-        this.ctx.restore(); 
+
+        this.ctx.restore();
         requestAnimationFrame(this.loopPrincipal);
     }
 
