@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Codeverse Game</title>
     <link rel="icon" type="image/x-icon" href="/aba-cion.ico">
     <style>
@@ -38,47 +38,52 @@
 
         canvas#gameCanvas {
             display: block; /* Remove espaço extra abaixo do canvas */
-            /* A resolução lógica é definida no JS (ex: 960x540) */
-            /* O CSS abaixo escala o canvas visualmente */
             max-width: 100%;  /* Não exceder a largura do gameContainer */
             max-height: 100%; /* Não exceder a altura do gameContainer */
             object-fit: contain; /* ESSENCIAL: escala mantendo a proporção, adicionando letter/pillarbox se necessário */
             
-            /* Para manter o estilo pixelado ao escalar */
             image-rendering: pixelated;
             image-rendering: -moz-crisp-edges;
             image-rendering: crisp-edges;
             margin-bottom: auto;
         }
 
-        /* Wrapper para os controles de toque, posicionado na base da tela */
         .touch-controls-wrapper {
-            position: absolute; 
-            bottom: 8rem;      /* Distância da borda inferior da tela */
-            width: 100%;       /* Ocupa a largura da tela */
-            padding: 0 15px;   /* Pequeno espaçamento lateral */
-            box-sizing: border-box;
-            display: flex;
-            justify-content: space-between; /* Separa grupos da esquerda e direita */
-            align-items: flex-end; /* Alinha os botões na parte inferior de seu espaço */
-            pointer-events: none; /* Permite que toques passem através do wrapper para o canvas (se não atingir um botão) */
-            z-index: 100;      /* Garante que os controles fiquem sobre qualquer coisa */
-        }
+    position: absolute;
+    /* Ajusta a propriedade 'bottom' para incluir a margem inferior da área de segurança.
+       O '0px' é um fallback caso a variável de ambiente não esteja disponível. */
+    bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+    width: 100%; /* Ocupa a largura da tela */
+
+    /* Ajusta os paddings laterais para incluir as margens da área de segurança.
+       Mantém o padding vertical original de 0 (implícito no 'padding: 0 15px;' original). */
+    padding-top: 0;
+    padding-bottom: 0; /* O espaçamento inferior é gerenciado pela propriedade 'bottom' */
+    padding-left: calc(15px + env(safe-area-inset-left, 0px));
+    padding-right: calc(15px + env(safe-area-inset-right, 0px));
+    
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between; /* Separa grupos da esquerda e direita */
+    align-items: flex-end; /* Alinha os botões na parte inferior de seu espaço */
+    pointer-events: none;
+    z-index: 100;
+}
 
         .control-group {
             display: flex;
-            gap: 15px; /* Espaço entre botões no mesmo grupo */
-            pointer-events: all; /* Reativa eventos para os botões */
+            gap: 15px; 
+            pointer-events: all; 
+            -webkit-writing-mode: vertical-lr; 
         }
 
         .touch-controls-wrapper button {
             width: 70px;
             height: 70px;
-            font-size: 2em; /* Ajuste para o tamanho do ícone/emoji */
-            background-color: rgba(55, 55, 75, 0.7); /* Azulado escuro translúcido */
-            color: white;
-            border: 2px solid rgba(180, 180, 220, 0.55);
-            border-radius: 50%; /* Botões circulares */
+            background-color: rgba(55, 55, 75, 0.523); 
+            backdrop-filter: blur(5px); 
+            border: none; 
+            border-radius: 50%; 
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
@@ -89,6 +94,7 @@
             justify-content: center;
             align-items: center;
             transition: background-color 0.1s ease, transform 0.1s ease;
+            padding: 0; 
         }
 
         .touch-controls-wrapper button:active {
@@ -96,18 +102,145 @@
             transform: scale(0.92);
         }
 
+        .touch-controls-wrapper button svg {
+            width: 35px;  
+            height: 35px; 
+        }
+
     </style>
 </head>
 <body>
     <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas> <div class="touch-controls-wrapper">
+        <canvas id="gameCanvas"></canvas>
+        <div class="touch-controls-wrapper">
             <div id="touchControlsLeft" class="control-group">
-                <button id="btnLeft">◀️</button>
-                <button id="btnRight">▶️</button>
+                <button id="btnLeft" aria-label="Esquerda">
+                    <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="scale: 1.5;">
+  <rect x="0" y="0" width="32" height="32" fill="none"/>
+  <rect x="2" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="2" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="6" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="6" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="10" y="8" width="4" height="4" fill="#000000"/>
+  <rect x="10" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="10" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="10" y="20" width="4" height="4" fill="#000000"/>
+  <rect x="14" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="14" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="18" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="18" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="22" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="22" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="26" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="26" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="14" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="18" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="22" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="6" y="10" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="6" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="6" y="18" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="2" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="14" y="14" width="4" height="2" fill="#FFFFFF"/>
+  <rect x="18" y="14" width="4" height="2" fill="#FFFFFF"/>
+  <rect x="6" y="10" width="4" height="2" fill="#FFFFFF"/>
+  <rect x="10" y="16" width="4" height="2" fill="#666666"/>
+  <rect x="6" y="18" width="4" height="2" fill="#666666"/>
+</svg>
+                </button>
+                <button id="btnRight" aria-label="Direita" style="margin-left: 10px;">
+                    <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="scale: 1.5;">
+  <!-- Fundo transparente -->
+  <rect x="0" y="0" width="32" height="32" fill="none"/>
+  <!-- Contorno da flecha (preto) -->
+  <rect x="6" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="6" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="10" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="10" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="14" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="14" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="18" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="18" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="22" y="8" width="4" height="4" fill="#000000"/>
+  <rect x="22" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="22" y="16" width="4" height="4" fill="#000000"/>
+  <rect x="22" y="20" width="4" height="4" fill="#000000"/>
+  <rect x="26" y="12" width="4" height="4" fill="#000000"/>
+  <rect x="26" y="16" width="4" height="4" fill="#000000"/>
+  <!-- Corpo principal da flecha (cinza claro) -->
+  <rect x="10" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="14" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="18" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <!-- Ponta da flecha (cinza claro) -->
+  <rect x="22" y="10" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="22" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="22" y="18" width="4" height="4" fill="#CCCCCC"/>
+  <rect x="26" y="14" width="4" height="4" fill="#CCCCCC"/>
+  <!-- Destaques (branco para brilho) -->
+  <rect x="10" y="14" width="4" height="2" fill="#FFFFFF"/>
+  <rect x="14" y="14" width="4" height="2" fill="#FFFFFF"/>
+  <rect x="22" y="10" width="4" height="2" fill="#FFFFFF"/>
+  <!-- Sombras (cinza escuro) -->
+  <rect x="18" y="16" width="4" height="2" fill="#666666"/>
+  <rect x="22" y="18" width="4" height="2" fill="#666666"/>
+</svg>
+                </button>
             </div>
             <div id="touchControlsRight" class="control-group">
-                <button id="btnShield">🛡️</button>
-                <button id="btnShoot">💥</button>
+                <button id="btnShield" aria-label="Escudo" style="margin-left: 10px;">
+                     <svg viewBox="0 0 24 24" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" style="scale: 1.5;">
+  <!-- Corpo do escudo (mais largo e pixelado) -->
+  <path fill="#2980b9" d="
+    M8 3 H16
+    L19 6 V9
+    L17 18
+    L12 22
+    L7 18
+    L5 9 V6
+    Z
+  "/>
+
+  <!-- Detalhe pixelado da borda (tom mais claro para relevo) -->
+  <path fill="#5dade2" d="
+    M8 3 H16 V4 H15 V5 H9 V4 H8 Z
+    M6 7 V9 L8 17 L12 20 L16 17 L18 9 V7 H17 V8 H16 V10 H15 V11 H14 V13 H13 V14 H11 V13 H10 V11 H9 V10 H8 V8 H7 V7 Z
+  "/>
+
+  <!-- Cruz médica -->
+  <path fill="#ffffff" d="
+    M11 10 H13 V12 H15 V14 H13 V16 H11 V14 H9 V12 H11 Z
+  "/>
+</svg>
+
+                </button>
+                <button id="btnShoot" aria-label="Atirar">
+                    <svg viewBox="0 0 24 24" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" style="scale: 4;">
+  <!-- Núcleo da bola de fogo -->
+  <rect x="11" y="11" width="2" height="2" fill="#f1c40f" />
+  
+  <!-- Anel laranja ao redor do núcleo -->
+  <rect x="10" y="11" width="1" height="1" fill="#e67e22" />
+  <rect x="13" y="11" width="1" height="1" fill="#e67e22" />
+  <rect x="10" y="12" width="1" height="1" fill="#e67e22" />
+  <rect x="13" y="12" width="1" height="1" fill="#e67e22" />
+  <rect x="11" y="10" width="1" height="1" fill="#e67e22" />
+  <rect x="12" y="10" width="1" height="1" fill="#e67e22" />
+  <rect x="11" y="13" width="1" height="1" fill="#e67e22" />
+  <rect x="12" y="13" width="1" height="1" fill="#e67e22" />
+
+  <!-- Chamas vermelhas externas -->
+  <rect x="9" y="11" width="1" height="1" fill="#c0392b" />
+  <rect x="14" y="11" width="1" height="1" fill="#c0392b" />
+  <rect x="11" y="9" width="1" height="1" fill="#c0392b" />
+  <rect x="12" y="9" width="1" height="1" fill="#c0392b" />
+  <rect x="11" y="14" width="1" height="1" fill="#c0392b" />
+  <rect x="12" y="14" width="1" height="1" fill="#c0392b" />
+  <rect x="10" y="10" width="1" height="1" fill="#c0392b" />
+  <rect x="13" y="10" width="1" height="1" fill="#c0392b" />
+  <rect x="10" y="13" width="1" height="1" fill="#c0392b" />
+  <rect x="13" y="13" width="1" height="1" fill="#c0392b" />
+</svg>
+
+                </button>
             </div>
         </div>
     </div>
