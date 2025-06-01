@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Codeverse Game - Nova UI Mobile</title>
+    <title>Codeverse Game</title>
+    <link rel="icon" type="image/x-icon" href="/aba-cion.ico">
     <style>
         body, html {
             margin: 0;
             padding: 0;
-            background-color: #000;
+            background-color: #000000; /* Fundo preto para toda a página */
+            width: 100vw; /* Largura total da viewport */
+            height: 100vh; /* Altura total da viewport */
+            overflow: hidden; /* Evita barras de rolagem */
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            font-family: 'PressStart2P', sans-serif; /* Se a fonte estiver carregada */
-            color: white; /* Cor de texto padrão para a página */
-            overscroll-behavior: none; /* Previne refresh ao puxar */
+            font-family: 'PressStart2P', sans-serif;
+            color: white;
+            overscroll-behavior: none; /* Previne refresh ao puxar em mobile */
         }
 
         @font-face {
@@ -26,57 +27,59 @@
         }
 
         #gameContainer {
-            position: relative;
-            width: 100%;
-            max-width: 800px; /* Ou a largura definida no seu JS */
-            max-height: 600px; /* Ou a altura definida no seu JS */
+            position: relative; /* Referência para posicionamento absoluto dos filhos */
+            width: 100vw;
+            height: 100vh;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            /* Para manter a proporção 4:3 (800x600) se a tela for muito larga ou alta */
-            aspect-ratio: 800 / 600;
+            justify-content: center; /* Centraliza o canvas horizontalmente */
+            align-items: center;   /* Centraliza o canvas verticalmente */
+            background-color: #000000; /* Cor de fundo para letter/pillar boxing */
         }
 
         canvas#gameCanvas {
-            border: 1px solid #1a1a1a;
-            width: 100%; /* Ocupa todo o #gameContainer */
-            height: 100%;/* Ocupa todo o #gameContainer */
             display: block; /* Remove espaço extra abaixo do canvas */
+            /* A resolução lógica é definida no JS (ex: 960x540) */
+            /* O CSS abaixo escala o canvas visualmente */
+            max-width: 100%;  /* Não exceder a largura do gameContainer */
+            max-height: 100%; /* Não exceder a altura do gameContainer */
+            object-fit: contain; /* ESSENCIAL: escala mantendo a proporção, adicionando letter/pillarbox se necessário */
+            
+            /* Para manter o estilo pixelado ao escalar */
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            margin-bottom: auto;
         }
 
-        /* Container geral para todos os controles de toque */
+        /* Wrapper para os controles de toque, posicionado na base da tela */
         .touch-controls-wrapper {
-            position: absolute;
-            bottom: 20px; /* Distância da base */
-            width: 100%;
-            max-width: 800px; /* Alinha com a largura do jogo */
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 0 20px; /* Espaçamento nas laterais */
+            position: absolute; 
+            bottom: 8rem;      /* Distância da borda inferior da tela */
+            width: 100%;       /* Ocupa a largura da tela */
+            padding: 0 15px;   /* Pequeno espaçamento lateral */
             box-sizing: border-box;
             display: flex;
-            justify-content: space-between; /* Separa os grupos de controle */
-            align-items: flex-end; /* Alinha os grupos na base */
-            pointer-events: none; /* Permite cliques no canvas através do wrapper */
+            justify-content: space-between; /* Separa grupos da esquerda e direita */
+            align-items: flex-end; /* Alinha os botões na parte inferior de seu espaço */
+            pointer-events: none; /* Permite que toques passem através do wrapper para o canvas (se não atingir um botão) */
+            z-index: 100;      /* Garante que os controles fiquem sobre qualquer coisa */
         }
 
-        /* Estilo base para os grupos de controle (esquerda e direita) */
         .control-group {
             display: flex;
-            gap: 20px; /* Espaço entre botões no mesmo grupo */
-            pointer-events: all; /* Habilita eventos de toque/mouse para os botões */
+            gap: 15px; /* Espaço entre botões no mesmo grupo */
+            pointer-events: all; /* Reativa eventos para os botões */
         }
 
-        /* Botões de controle individuais */
         .touch-controls-wrapper button {
-            width: 70px;  /* Tamanho fixo */
-            height: 70px; /* Tamanho fixo */
-            font-size: 2em; /* Tamanho do ícone (emoji) */
-            background-color: rgba(50, 50, 70, 0.65); /* Fundo translúcido */
+            width: 70px;
+            height: 70px;
+            font-size: 2em; /* Ajuste para o tamanho do ícone/emoji */
+            background-color: rgba(55, 55, 75, 0.7); /* Azulado escuro translúcido */
             color: white;
-            border: 2px solid rgba(180, 180, 200, 0.5);
+            border: 2px solid rgba(180, 180, 220, 0.55);
             border-radius: 50%; /* Botões circulares */
-            touch-action: manipulation; /* Otimiza para toques */
+            touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
             -moz-user-select: none;
@@ -85,38 +88,27 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: background-color 0.1s ease, transform 0.1s ease; /* Transição suave */
+            transition: background-color 0.1s ease, transform 0.1s ease;
         }
 
-        /* Efeito ao pressionar o botão */
         .touch-controls-wrapper button:active {
-            background-color: rgba(80, 80, 110, 0.85);
-            transform: scale(0.92); /* Leve encolhida */
-        }
-
-        /* Ajustes específicos se necessário */
-        #touchControlsLeft {
-            /* Pode adicionar margens específicas se justify-content não for suficiente */
-        }
-
-        #touchControlsRight {
-            /* Pode adicionar margens específicas */
+            background-color: rgba(85, 85, 115, 0.9);
+            transform: scale(0.92);
         }
 
     </style>
 </head>
 <body>
     <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-
-        <div class="touch-controls-wrapper">
+        <canvas id="gameCanvas"></canvas> <div class="touch-controls-wrapper">
             <div id="touchControlsLeft" class="control-group">
                 <button id="btnLeft">◀️</button>
                 <button id="btnRight">▶️</button>
             </div>
             <div id="touchControlsRight" class="control-group">
                 <button id="btnShield">🛡️</button>
-                <button id="btnShoot">💥</button> </div>
+                <button id="btnShoot">💥</button>
+            </div>
         </div>
     </div>
 
